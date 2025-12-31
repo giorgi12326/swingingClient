@@ -80,7 +80,11 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseMo
 
             for(Pair<Integer> pair : Cube.edges){
                 if(projectedDots[pair.x] == null || projectedDots[pair.y] == null) continue;
-                g.draw(new Line2D.Float(projectedDots[pair.x].x, projectedDots[pair.x].y, projectedDots[pair.y].x, projectedDots[pair.y].y));
+                g.draw(new Line2D.Float(
+                        projectedDots[pair.x].x,
+                        720 - projectedDots[pair.x].y,// - because panel y starts from top
+                        projectedDots[pair.y].x,
+                        720 - projectedDots[pair.y].y));// - because panel y starts from top
             }
         }
 
@@ -105,12 +109,13 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseMo
         y -= cameraCoords.y;
         z -= cameraCoords.z;
 
-        float cosY = (float)Math.cos(cameraRotation.y);
-        float sinY = (float)Math.sin(cameraRotation.y);
+        float cosY = (float)Math.cos(-cameraRotation.y);
+        float sinY = (float)Math.sin(-cameraRotation.y);
         float xr = x * cosY + z * sinY;
         float zr2 = -x * sinY + z * cosY;
         x = xr;
         z = zr2;
+
         float cosX = (float)Math.cos(cameraRotation.x);
         float sinX = (float)Math.sin(cameraRotation.x);
         float yr = y * cosX - z * sinX;
@@ -122,16 +127,17 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseMo
 
         float d = x/z;
         float t = y/z;
+
         if(Math.abs(y) > Math.abs(z) || Math.abs(x) > Math.abs(z)) return null;
 
-        return new float[]{SCREEN_WIDTH * d/2 + SCREEN_WIDTH/2f, SCREEN_HEIGHT*t/2 + SCREEN_HEIGHT/2f};
+        return new float[]{SCREEN_WIDTH * d/2f + SCREEN_WIDTH/2f, ((SCREEN_HEIGHT*t)/2f) + (SCREEN_HEIGHT/2f)};
     }
 
     public static void main(String[] args) {
         Frame frame = new Frame("Simple Moving Rectangle");
         Cube[] arr = new Cube[]{
                 new Cube(0f,0f, 10f,1f),
-                new Cube(2f,0f, 10f,1f),
+                new Cube(2f,-2f, 10f,1f),
         };
 
         SimpleMove canvas = new SimpleMove(arr);
@@ -161,14 +167,28 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseMo
             cameraCoords.y -= 0.1f;
         }
         switch (e.getKeyChar()) {
-            case 'w':  cameraCoords.z += 0.1f;; break;
-            case 's' : cameraCoords.z -= 0.1f; break;
+            case 'w':
+                moveForward();
+                break;
+            case 's' :
+                moveBackward();
+                break;
             case 'd' : cameraCoords.x += 0.1f; break;
             case 'a' : cameraCoords.x -= 0.1f; break;
             case ' ' : cameraCoords.y += 0.1f; break;
             case 'c' :
                 System.out.println(cameraRotation); break;
         }
+    }
+
+    private void moveForward() {
+        cameraCoords.x += 0.1f * (float) Math.sin(cameraRotation.y);
+        cameraCoords.z += 0.1f * (float) Math.cos(cameraRotation.y);
+    }
+
+    private void moveBackward() {
+        cameraCoords.x -= 0.1f * (float) Math.sin(cameraRotation.y);
+        cameraCoords.z -= 0.1f * (float) Math.cos(cameraRotation.y);
     }
 
     @Override
@@ -183,8 +203,8 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseMo
 
     @Override
     public void mouseMoved(MouseEvent e) {
-        cameraRotation.x = (float)Math.PI * ((2 * e.getY() / 720f) - 1);
-        cameraRotation.y = (float)Math.PI * -((2 * e.getX() / 1080f) - 1);
+        cameraRotation.x = (float)Math.PI * -((2 * e.getY() / 720f) - 1);// - because panel y starts from top
+        cameraRotation.y = (float)Math.PI * ((2 * e.getX() / 1080f) - 1);
 
     }
 }
