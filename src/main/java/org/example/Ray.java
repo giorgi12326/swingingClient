@@ -2,6 +2,7 @@ package org.example;
 
 public class Ray {
     Triple position;
+    Triple deltaDirection;
     Pair<Float> direction;
     float size;
 

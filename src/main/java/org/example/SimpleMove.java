@@ -10,6 +10,7 @@ import java.awt.geom.Line2D;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferStrategy;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 @SuppressWarnings("unchecked")
@@ -21,12 +22,12 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
     Triple cameraCoords = new Triple(0f,0f,0f);
     Pair<Float> cameraRotation = new Pair<>(0f,0f);
 
-    Cube[] cubes;
+    List<Cube> cubes;
     List<Ray> rays = new ArrayList<>();
     List<Triple> floor = new ArrayList<>();
 
     public SimpleMove(Cube... cubes) {
-        this.cubes = cubes;
+        this.cubes = new ArrayList<>(Arrays.stream(cubes).toList());
         setSize((int)SCREEN_WIDTH, (int)SCREEN_HEIGHT);
         addKeyListener(this);
         addMouseMotionListener(this);
@@ -78,17 +79,27 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
         g.fill(new Rectangle2D.Float(SCREEN_WIDTH/2f - 2f, SCREEN_HEIGHT/2f-10f, 4f, 20f));
 
         g.setColor(Color.BLUE);
-        for(Ray ray:  rays) {
+        for (int i = rays.size()-1; i >= 0 ; i--) {
+            Ray ray = rays.get(i);
             Pair<Float> projected = projectTo2D(ray.position.x, ray.position.y, ray.position.z);
-            Triple triple = nextPointOnRay(ray);
-            Pair<Float> projectedDelta = projectTo2D(triple.x, triple.y, triple.z);
-            if(projected == null || projectedDelta == null) continue;
+            Pair<Float> nextProjected = projectTo2D(ray.position.x + ray.deltaDirection.x, ray.position.y + ray.deltaDirection.y, ray.position.z + ray.deltaDirection.z);
+            if(projected == null || nextProjected == null) continue;
+            for (int j = cubes.size()-1; j >= 0; j--) {
+                Cube cube = cubes.get(j);
+                if (rayIntersectsCube(
+                        ray.position.x, ray.position.y, ray.position.z,
+                        ray.deltaDirection.x, ray.deltaDirection.y, ray.deltaDirection.z,
+                        cube.x - cube.size/2f, cube.y - cube.size/2f, cube.z - cube.size/2f,
+                        cube.x + cube.size/2f, cube.y + cube.size/2f, cube.z + cube.size/2f
+                ))
+                    cubes.remove(j);
 
+            }
             g.draw(new Line2D.Float(
                     projected.x,
                     SCREEN_HEIGHT - projected.y,
-                    projectedDelta.x,
-                    SCREEN_HEIGHT - projectedDelta.y
+                    nextProjected.x,
+                    SCREEN_HEIGHT - nextProjected.y
             ));
 
         }
@@ -116,12 +127,40 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
     }
 
     private Triple nextPointOnRay(Ray ray) {
-        float dx = ray.position.x + (float)(Math.cos(ray.direction.x) * Math.sin(ray.direction.y));
-        float dy = ray.position.y + (float)(Math.sin(ray.direction.x));
-        float dz = ray.position.z + (float)(Math.cos(ray.direction.x) * Math.cos(ray.direction.y));
+        float dx = (float)(Math.cos(ray.direction.x) * Math.sin(ray.direction.y));
+        float dy = (float)(Math.sin(ray.direction.x));
+        float dz = (float)(Math.cos(ray.direction.x) * Math.cos(ray.direction.y));
         return new Triple(dx, dy, dz);
-
     }
+
+    boolean rayIntersectsCube(
+            float ox, float oy, float oz,
+            float dx, float dy, float dz,
+            float minX, float minY, float minZ,
+            float maxX, float maxY, float maxZ
+    ) {
+        float tMin = (minX - ox) / dx;
+        float tMax = (maxX - ox) / dx;
+        if (tMin > tMax) { float tmp = tMin; tMin = tMax; tMax = tmp; }
+
+        float tyMin = (minY - oy) / dy;
+        float tyMax = (maxY - oy) / dy;
+        if (tyMin > tyMax) { float tmp = tyMin; tyMin = tyMax; tyMax = tmp; }
+
+        if (tMin > tyMax || tyMin > tMax) return false;
+
+        if (tyMin > tMin) tMin = tyMin;
+        if (tyMax < tMax) tMax = tyMax;
+
+        float tzMin = (minZ - oz) / dz;
+        float tzMax = (maxZ - oz) / dz;
+        if (tzMin > tzMax) { float tmp = tzMin; tzMin = tzMax; tzMax = tmp; }
+
+        if (tMin > tzMax || tzMin > tMax) return false;
+
+        return tMax >= 0;
+    }
+
 
     private Pair<Float>[] getProjectedDotsForCube(Cube rec) {
         Pair<Float>[] projectedDots = (Pair<Float>[]) new Pair<?>[8];
@@ -169,6 +208,9 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
         Cube[] arr = new Cube[]{
                 new Cube(0.5f,0.5f, 3.5f,1f),
                 new Cube(2.5f,2.5f, 3.5f,1f),
+                new Cube(2.5f,-2.5f, 3.5f,1f),
+                new Cube(2.5f,2.5f, -3.5f,1f),
+                new Cube(2.5f,-2.5f, -3.5f,1f),
         };
 
         SimpleMove canvas = new SimpleMove(arr);
@@ -254,7 +296,12 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
 
     @Override
     public void mousePressed(MouseEvent e) {
-        rays.add(new Ray(new Triple(cameraCoords), new Pair<>(cameraRotation), 2f));
+        Ray ray = new Ray(new Triple(cameraCoords), new Pair<>(cameraRotation), 5f);
+        rays.add(ray);
+        ray.deltaDirection = nextPointOnRay(ray);
+        ray.position.x += ray.deltaDirection.x;
+        ray.position.y += ray.deltaDirection.y;
+        ray.position.z += ray.deltaDirection.z;
     }
 
     @Override
