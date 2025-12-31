@@ -9,6 +9,11 @@ public class Pair<T> {
         this.y = y;
     }
 
+    public Pair(Pair<T> cameraRotation) {
+        this.x = cameraRotation.x;
+        this.y = cameraRotation.y;
+    }
+
     @Override
     public String toString() {
         return "Pair{" +

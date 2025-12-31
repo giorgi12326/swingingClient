@@ -13,7 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @SuppressWarnings("unchecked")
-public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseMotionListener {
+public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseListener , MouseMotionListener {
 
     public static final float SCREEN_WIDTH = 1080f;
     public static final float SCREEN_HEIGHT = 720f;
@@ -22,15 +22,15 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseMo
     Pair<Float> cameraRotation = new Pair<>(0f,0f);
 
     Cube[] cubes;
-
+    List<Ray> rays = new ArrayList<>();
     List<Triple> floor = new ArrayList<>();
-
 
     public SimpleMove(Cube... cubes) {
         this.cubes = cubes;
         setSize((int)SCREEN_WIDTH, (int)SCREEN_HEIGHT);
         addKeyListener(this);
         addMouseMotionListener(this);
+        addMouseListener(this);
 
         for (int i = -10; i < 10; i++) {
             for (int j = -10; j < 10; j++) {
@@ -74,6 +74,21 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseMo
         g.fillRect(0, 0, getWidth(), getHeight());
 
         g.setColor(Color.BLUE);
+
+        for(Ray ray:  rays) {
+            Pair<Float> projected = projectTo2D(ray.position.x, ray.position.y, ray.position.z);
+            Triple triple = nextPointOnRay(ray);
+            Pair<Float> projectedDelta = projectTo2D(triple.x, triple.y, triple.z);
+            if(projected == null || projectedDelta == null) continue;
+
+            g.draw(new Line2D.Float(
+                    projected.x,
+                    SCREEN_HEIGHT - projected.y,
+                    projectedDelta.x,
+                    SCREEN_HEIGHT - projectedDelta.y
+            ));
+
+        }
         for(Triple point : floor) {
             Pair<Float> projected = projectTo2D(point.x, point.y, point.z);
             if(projected == null) continue;
@@ -95,6 +110,14 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseMo
 
         g.dispose();
         bs.show();
+    }
+
+    private Triple nextPointOnRay(Ray ray) {
+        float dx = ray.position.x + (float)(Math.cos(ray.direction.x) * Math.sin(ray.direction.y));
+        float dy = ray.position.y + (float)(Math.sin(ray.direction.x));
+        float dz = ray.position.z + (float)(Math.cos(ray.direction.x) * Math.cos(ray.direction.y));
+        return new Triple(dx, dy, dz);
+
     }
 
     private Pair<Float>[] getProjectedDotsForCube(Cube rec) {
@@ -199,7 +222,6 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseMo
         cameraCoords.z += 0.1f * (float)Math.sin(cameraRotation.y);
     }
 
-
     @Override
     public void keyReleased(KeyEvent e) {
 
@@ -219,6 +241,31 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseMo
             cameraRotation.x = Math.max(a,-1.57f);
 
         cameraRotation.y = (float)Math.PI * ((2 * e.getX() / SCREEN_WIDTH) - 1);
+
+    }
+
+    @Override
+    public void mouseClicked(MouseEvent e) {
+
+    }
+
+    @Override
+    public void mousePressed(MouseEvent e) {
+        rays.add(new Ray(new Triple(cameraCoords), new Pair<>(cameraRotation), 2f));
+    }
+
+    @Override
+    public void mouseReleased(MouseEvent e) {
+
+    }
+
+    @Override
+    public void mouseEntered(MouseEvent e) {
+
+    }
+
+    @Override
+    public void mouseExited(MouseEvent e) {
 
     }
 }
