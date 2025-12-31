@@ -73,8 +73,11 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
         g.setColor(Color.BLACK);
         g.fillRect(0, 0, getWidth(), getHeight());
 
-        g.setColor(Color.BLUE);
+        g.setColor(Color.lightGray);
+        g.fill(new Rectangle2D.Float(SCREEN_WIDTH/2f - 10f, SCREEN_HEIGHT/2f-2f, 20f, 4f));
+        g.fill(new Rectangle2D.Float(SCREEN_WIDTH/2f - 2f, SCREEN_HEIGHT/2f-10f, 4f, 20f));
 
+        g.setColor(Color.BLUE);
         for(Ray ray:  rays) {
             Pair<Float> projected = projectTo2D(ray.position.x, ray.position.y, ray.position.z);
             Triple triple = nextPointOnRay(ray);
