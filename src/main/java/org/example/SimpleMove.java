@@ -75,41 +75,35 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseMo
 
         g.setColor(Color.BLUE);
 
-        int count = 0;
         for (Cube rec: cubes) {
-            Pair<Float>[] projectedDots = (Pair<Float>[]) new Pair<?>[10];
+            Pair<Float>[] projectedDots = getProjectedDotsForCube(rec);
 
-            for(Triple triple: rec.getPoints()) {
-                float[] coords = projectTo2D(triple.x, triple.y, triple.z);
-                if(coords == null) continue;
-                projectedDots[count++] = new Pair<>(coords[0], coords[1]);
-                g.fill(new Rectangle2D.Float(coords[0], coords[1], 5f, 5f));
-            }
             for(Pair<Integer> pair : Cube.edges){
                 if(projectedDots[pair.x] == null || projectedDots[pair.y] == null) continue;
                 g.draw(new Line2D.Float(projectedDots[pair.x].x, projectedDots[pair.x].y, projectedDots[pair.y].x, projectedDots[pair.y].y));
-
             }
         }
 
-//        for (Triple<Float> floor : floor) {
-//            g.setColor(Color.RED);
-//            float[] coords = projectTo2D(floor.x, floor.y, floor.z);
-//            if(coords == null) continue;
-//
-//            g.fill(new Rectangle2D.Float(coords[0], coords[1], 5f, 5f));
-//        }
-
         g.dispose();
         bs.show();
+    }
+
+    private Pair<Float>[] getProjectedDotsForCube(Cube rec) {
+        Pair<Float>[] projectedDots = (Pair<Float>[]) new Pair<?>[8];
+        int count =-1;
+        for(Triple point: rec.getPoints()) {
+            count++;
+            float[] coords = projectTo2D(point.x, point.y, point.z);
+            if(coords == null) continue;
+            projectedDots[count] = new Pair<>(coords[0], coords[1]);
+        }
+        return projectedDots;
     }
 
     private float[] projectTo2D(float x, float y, float z) {
         x -= cameraCoords.x;
         y -= cameraCoords.y;
         z -= cameraCoords.z;
-
-
 
         float cosY = (float)Math.cos(cameraRotation.y);
         float sinY = (float)Math.sin(cameraRotation.y);
@@ -126,17 +120,19 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseMo
 
         if(z <= 0) return null;
 
-
         float d = x/z;
         float t = y/z;
-        if(z <= 0 || Math.abs(y) > Math.abs(z) || Math.abs(x) > Math.abs(z)) return null;
+        if(Math.abs(y) > Math.abs(z) || Math.abs(x) > Math.abs(z)) return null;
 
         return new float[]{SCREEN_WIDTH * d/2 + SCREEN_WIDTH/2f, SCREEN_HEIGHT*t/2 + SCREEN_HEIGHT/2f};
     }
 
     public static void main(String[] args) {
         Frame frame = new Frame("Simple Moving Rectangle");
-        Cube[] arr = new Cube[]{new Cube(0f,0f, 10f,1f)};
+        Cube[] arr = new Cube[]{
+                new Cube(0f,0f, 10f,1f),
+                new Cube(2f,0f, 10f,1f),
+        };
 
         SimpleMove canvas = new SimpleMove(arr);
         frame.add(canvas);

@@ -57,7 +57,6 @@ public class Cube {
             }
         }
         return arr;
-
     }
 
     public void update() {
