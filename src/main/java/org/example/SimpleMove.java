@@ -7,7 +7,6 @@ import java.awt.Frame;
 import java.awt.Color;
 import java.awt.event.*;
 import java.awt.geom.Line2D;
-import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferStrategy;
 import java.util.ArrayList;
 import java.util.List;
@@ -15,8 +14,8 @@ import java.util.List;
 @SuppressWarnings("unchecked")
 public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseMotionListener {
 
-    public static final int SCREEN_WIDTH = 1080;
-    public static final int SCREEN_HEIGHT = 720;
+    public static final float SCREEN_WIDTH = 1080f;
+    public static final float SCREEN_HEIGHT = 720f;
 
     Triple cameraCoords = new Triple(0f,0f,0f);
     Pair<Float> cameraRotation = new Pair<>(0f,0f);
@@ -28,7 +27,7 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseMo
 
     public SimpleMove(Cube... cubes) {
         this.cubes = cubes;
-        setSize(SCREEN_WIDTH, SCREEN_HEIGHT);
+        setSize((int)SCREEN_WIDTH, (int)SCREEN_HEIGHT);
         addKeyListener(this);
         addMouseMotionListener(this);
 
@@ -82,9 +81,9 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseMo
                 if(projectedDots[pair.x] == null || projectedDots[pair.y] == null) continue;
                 g.draw(new Line2D.Float(
                         projectedDots[pair.x].x,
-                        720 - projectedDots[pair.x].y,// - because panel y starts from top
+                        SCREEN_HEIGHT - projectedDots[pair.x].y,// - because panel y starts from top
                         projectedDots[pair.y].x,
-                        720 - projectedDots[pair.y].y));// - because panel y starts from top
+                        SCREEN_HEIGHT - projectedDots[pair.y].y));// - because panel y starts from top
             }
         }
 
@@ -203,8 +202,13 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseMo
 
     @Override
     public void mouseMoved(MouseEvent e) {
-        cameraRotation.x = (float)Math.PI * -((2 * e.getY() / 720f) - 1);// - because panel y starts from top
-        cameraRotation.y = (float)Math.PI * ((2 * e.getX() / 1080f) - 1);
+        float a = (float) Math.PI * -((2 * e.getY() / SCREEN_HEIGHT) - 1);// - because panel y starts from top
+        if(a > 0)
+            cameraRotation.x = Math.min(a,1.57f);
+        else if(a < 0)
+            cameraRotation.x = Math.max(a,-1.57f);
+
+        cameraRotation.y = (float)Math.PI * ((2 * e.getX() / SCREEN_WIDTH) - 1);
 
     }
 }
