@@ -18,6 +18,7 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
     public static final float moveSpeed = 5f;
     public final Set<Integer> keysDown = new HashSet<>();
     public static float deltaTime = 1f;
+    public static float FOV = 1;
     long lastTime = System.nanoTime();
 
     Triple cameraCoords = new Triple(0f,0f,0f);
@@ -189,21 +190,6 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
 
         }
 
-        Pair<Float>[] projectedDotsForGun = gun.getProjectedDotsForGun(this);
-        for(Pair<Float> dot: projectedDotsForGun){
-            if(dot == null) continue;
-            g.draw(new Rectangle2D.Float(dot.x, 720 - dot.y, 5f,5f ));
-        }
-        for(Pair<Integer> pair : Gun.edges){
-            if(projectedDotsForGun[pair.x] == null || projectedDotsForGun[pair.y] == null) continue;
-            g.draw(new Line2D.Float(
-                    projectedDotsForGun[pair.x].x,
-                    SCREEN_HEIGHT - projectedDotsForGun[pair.x].y,// - because panel y starts from top
-                    projectedDotsForGun[pair.y].x,
-                    SCREEN_HEIGHT - projectedDotsForGun[pair.y].y));// - because panel y starts from top
-        }
-
-
 //        rays.clear();
         for(Triple point : floor) {
             Pair<Float> projected = projectTo2D(point.x, point.y, point.z);
@@ -221,6 +207,18 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
                         projectedDots[pair.y].x,
                         SCREEN_HEIGHT - projectedDots[pair.y].y));// - because panel y starts from top
             }
+        }
+
+        g.setColor(Color.YELLOW);
+        Pair<Float>[] projectedDotsForGun = gun.getProjectedDotsForGun(this);
+
+        for(Pair<Integer> pair : Gun.edges){
+            if(projectedDotsForGun[pair.x] == null || projectedDotsForGun[pair.y] == null) continue;
+            g.draw(new Line2D.Float(
+                    projectedDotsForGun[pair.x].x,
+                    SCREEN_HEIGHT - projectedDotsForGun[pair.x].y,// - because panel y starts from top
+                    projectedDotsForGun[pair.y].x,
+                    SCREEN_HEIGHT - projectedDotsForGun[pair.y].y));// - because panel y starts from top
         }
         g.drawString("FPS: " + (int)(1/deltaTime), 30, 30);
 
@@ -256,8 +254,8 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
 
         if(z < 0) return null;
 
-        float d = x/z;
-        float t = y/z;
+        float d = FOV * x/z;
+        float t = FOV * y/z;
 
 //        if(Math.abs(y) > Math.abs(z) || Math.abs(x) > Math.abs(z)) return null; // only sohw visible nodes , wihtout it things in front of camera z is drawn off screen
 
@@ -310,6 +308,10 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
 
     @Override
     public void keyPressed(KeyEvent e) {
+        if(e.getKeyCode() == KeyEvent.VK_9)
+            FOV*=1.1f;
+        if(e.getKeyCode() == KeyEvent.VK_0)
+            FOV*=0.9f;
         keysDown.add(e.getKeyCode());
     }
 
