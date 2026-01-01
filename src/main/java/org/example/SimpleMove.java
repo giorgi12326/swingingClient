@@ -9,15 +9,14 @@ import java.awt.event.*;
 import java.awt.geom.Line2D;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferStrategy;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 
 @SuppressWarnings("unchecked")
 public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseListener , MouseMotionListener {
 
     public static final float SCREEN_WIDTH = 1080f;
     public static final float SCREEN_HEIGHT = 720f;
+    public final Set<Integer> keysDown = new HashSet<>();
 
     Triple cameraCoords = new Triple(0f,0f,0f);
     Pair<Float> cameraRotation = new Pair<>(0f,0f);
@@ -51,6 +50,7 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
         BufferStrategy bs = getBufferStrategy();
 
         while (true) {
+            input();
             update();
             render(bs);
             try {
@@ -59,6 +59,21 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
                 e.printStackTrace();
             }
         }
+    }
+
+    private void input() {
+        if(keysDown.contains(KeyEvent.VK_W))
+            moveForward();
+        if(keysDown.contains(KeyEvent.VK_S))
+            moveBackward();
+        if(keysDown.contains(KeyEvent.VK_D))
+            moveRight();
+        if(keysDown.contains(KeyEvent.VK_A))
+            moveLeft();
+        if(keysDown.contains(KeyEvent.VK_SPACE))
+            cameraCoords.y += 0.1f;
+        if(keysDown.contains(KeyEvent.VK_SHIFT))
+            cameraCoords.y -= 0.1f;
     }
 
     private void update() {
@@ -103,6 +118,7 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
             ));
 
         }
+        rays.clear();
         for(Triple point : floor) {
             Pair<Float> projected = projectTo2D(point.x, point.y, point.z);
             if(projected == null) continue;
@@ -126,7 +142,7 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
         bs.show();
     }
 
-    private Triple nextPointOnRay(Ray ray) {
+    private Triple normalization(Ray ray) {
         float dx = (float)(Math.cos(ray.direction.x) * Math.sin(ray.direction.y));
         float dy = (float)(Math.sin(ray.direction.x));
         float dz = (float)(Math.cos(ray.direction.x) * Math.cos(ray.direction.y));
@@ -193,12 +209,12 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
         y = yr;
         z = zr;
 
-        if(z <= 0) return null;
+        if(z < 0) return null;
 
         float d = x/z;
         float t = y/z;
 
-        if(Math.abs(y) > Math.abs(z) || Math.abs(x) > Math.abs(z)) return null;
+//        if(Math.abs(y) > Math.abs(z) || Math.abs(x) > Math.abs(z)) return null; // only sohw visible nodes , wihtout it things in front of camera z is drawn off screen
 
         return new Pair<>(SCREEN_WIDTH * d/2f + SCREEN_WIDTH/2f, ((SCREEN_HEIGHT*t)/2f) + (SCREEN_HEIGHT/2f));
     }
@@ -207,10 +223,17 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
         Frame frame = new Frame("Simple Moving Rectangle");
         Cube[] arr = new Cube[]{
                 new Cube(0.5f,0.5f, 3.5f,1f),
+                new Cube(0.5f,2.5f, 3.5f,1f),
+                new Cube(0.5f,4.5f, 3.5f,1f),
+                new Cube(0.5f,6.5f, 3.5f,1f),
+                new Cube(2.5f,0.5f, 3.5f,1f),
                 new Cube(2.5f,2.5f, 3.5f,1f),
-                new Cube(2.5f,-2.5f, 3.5f,1f),
-                new Cube(2.5f,2.5f, -3.5f,1f),
-                new Cube(2.5f,-2.5f, -3.5f,1f),
+                new Cube(2.5f,4.5f, 3.5f,1f),
+                new Cube(2.5f,6.5f, 3.5f,1f),
+                new Cube(4.5f,0.5f, 3.5f,1f),
+                new Cube(4.5f,2.5f, 3.5f,1f),
+                new Cube(4.5f,4.5f, 3.5f,1f),
+                new Cube(4.5f,6.5f, 3.5f,1f),
         };
 
         SimpleMove canvas = new SimpleMove(arr);
@@ -236,16 +259,7 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
 
     @Override
     public void keyPressed(KeyEvent e) {
-        switch (e.getKeyChar()) {
-            case 'w': moveForward(); break;
-            case 's' : moveBackward(); break;
-            case 'd' : moveRight(); break;
-            case 'a' : moveLeft(); break;
-            case ' ' : cameraCoords.y += 0.1f; break;
-        }
-        if(e.getKeyCode() == 16) {
-            cameraCoords.y -= 0.1f;
-        }
+        keysDown.add(e.getKeyCode());
     }
 
     private void moveForward() {
@@ -269,7 +283,7 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
 
     @Override
     public void keyReleased(KeyEvent e) {
-
+        keysDown.remove(e.getKeyCode());
     }
 
     @Override
@@ -298,10 +312,7 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
     public void mousePressed(MouseEvent e) {
         Ray ray = new Ray(new Triple(cameraCoords), new Pair<>(cameraRotation), 5f);
         rays.add(ray);
-        ray.deltaDirection = nextPointOnRay(ray);
-        ray.position.x += ray.deltaDirection.x;
-        ray.position.y += ray.deltaDirection.y;
-        ray.position.z += ray.deltaDirection.z;
+        ray.deltaDirection = normalization(ray);
     }
 
     @Override
