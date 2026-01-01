@@ -77,9 +77,9 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
 
     private void input() {
         sum = new Triple(0f,0f,0f);
-        if (keysDown.contains(KeyEvent.VK_W)) {
+
+        if (keysDown.contains(KeyEvent.VK_W))
             sum.add(moveForward());
-        }
         if (keysDown.contains(KeyEvent.VK_S))
             sum.add(moveBackward());
         if (keysDown.contains(KeyEvent.VK_D))
@@ -92,6 +92,7 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
             inAir = true;
         }
 
+
         if(keysDown.contains(KeyEvent.VK_SHIFT))
             cameraCoords.y -= moveSpeed * deltaTime;
     }
@@ -100,56 +101,48 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
         for(Cube cube : cubes) {
             cube.update();
         }
+
+        verticalSpeed -= GRAVITY * deltaTime;
+        float dy = verticalSpeed * deltaTime;
+        sum.y += dy;
+        cameraCoords.y += sum.y;
+
+        for(Cube cube: cubes) {
+            if(cube.isInCube(cameraCoords)) {
+                if(sum.y > 0) {
+                    cameraCoords.y = cube.y - cube.size/2 - 0.0001f;
+                    verticalSpeed = 0f;
+                }
+                else {
+                    cameraCoords.y = cube.y + cube.size/2 + 0.0001f;
+                    verticalSpeed = 0f;
+                    inAir = false;
+                }
+            }
+        }
+        if(cameraCoords.y <= 0f) {
+            cameraCoords.y = 0.0001f;
+            verticalSpeed = 0f;
+            inAir = false;
+        }
+
         cameraCoords.x += sum.x;
         for(Cube cube : cubes) {
             if (cube.isInCube(cameraCoords)) {
                 if (sum.x > 0)
-                    cameraCoords.x = cube.x - cube.size / 2 - 0.01f;
+                    cameraCoords.x = cube.x - cube.size / 2 - 0.0001f;
                 else
-                    cameraCoords.x = cube.x + cube.size / 2 + 0.01f;
+                    cameraCoords.x = cube.x + cube.size / 2 + 0.0001f;
             }
         }
-        cameraCoords.y += sum.y;
-        for(Cube cube : cubes) {
-            if (cube.isInCube(cameraCoords)) {
-                if (sum.y > 0)
-                    cameraCoords.y = cube.y - cube.size / 2 - 0.01f;
-                else
-                    cameraCoords.y = cube.y + cube.size / 2 + 0.01f;
-            }
-        }
+
         cameraCoords.z += sum.z;
         for(Cube cube : cubes) {
             if (cube.isInCube(cameraCoords)) {
                 if (sum.z > 0)
-                    cameraCoords.z = cube.z - cube.size / 2 - 0.01f;
+                    cameraCoords.z = cube.z - cube.size / 2 - 0.0001f;
                 else
-                    cameraCoords.z = cube.z + cube.size / 2 + 0.01f;
-            }
-        }
-        if(inAir) {
-            verticalSpeed -= GRAVITY * deltaTime;
-            float dy = verticalSpeed * deltaTime;
-            cameraCoords.y += dy;
-
-            for(Cube cube: cubes) {
-                if(cube.isInCube(cameraCoords)) {
-                    if(dy > 0) {
-                        cameraCoords.y = cube.y - cube.size/2 - 0.01f;
-                        verticalSpeed = 0f;
-                    }
-                    else {
-                        cameraCoords.y = cube.y + cube.size/2 + 0.01f;
-                        verticalSpeed = 0f;
-                        inAir = false;
-                    }
-
-                }
-            }
-            if(cameraCoords.y <= 0f) {
-                cameraCoords.y = 0f;
-                verticalSpeed = 0f;
-                inAir = false;
+                    cameraCoords.z = cube.z + cube.size / 2 + 0.0001f;
             }
         }
 
@@ -162,6 +155,7 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
         g.setColor(Color.BLACK);
         g.fillRect(0, 0, getWidth(), getHeight());
 
+        System.out.println(cameraCoords.y + "    asdasdsadsadsa");
         g.setColor(Color.lightGray);
         g.fill(new Rectangle2D.Float(SCREEN_WIDTH/2f - 10f, SCREEN_HEIGHT/2f-2f, 20f, 4f));
         g.fill(new Rectangle2D.Float(SCREEN_WIDTH/2f - 2f, SCREEN_HEIGHT/2f-10f, 4f, 20f));
@@ -257,17 +251,14 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
         Frame frame = new Frame("Simple Moving Rectangle");
         Cube[] arr = new Cube[]{
                 new Cube(0.5f,0.5f, 3.5f,1f),
-                new Cube(0.5f,2.5f, 3.5f,1f),
-                new Cube(0.5f,4.5f, 3.5f,1f),
-                new Cube(0.5f,6.5f, 3.5f,1f),
-                new Cube(2.5f,0.5f, 3.5f,1f),
-                new Cube(2.5f,2.5f, 3.5f,1f),
-                new Cube(2.5f,4.5f, 3.5f,1f),
-                new Cube(2.5f,6.5f, 3.5f,1f),
-                new Cube(4.5f,0.5f, 3.5f,1f),
-                new Cube(4.5f,2.5f, 3.5f,1f),
-                new Cube(4.5f,4.5f, 3.5f,1f),
-                new Cube(4.5f,6.5f, 3.5f,1f),
+                new Cube(0.5f,1.5f, 5.5f,1f),
+                new Cube(0.5f,2.5f, 6.5f,1f),
+                new Cube(0.5f,3.5f, 9.5f,1f),
+                new Cube(0.5f,3.5f, 12.5f,1f),
+                new Cube(0.5f,3.5f, 15.5f,1f),
+                new Cube(0.5f,4.5f, 18.5f,1f),
+                new Cube(0.5f,4.5f, 23.5f,1f),
+                new Cube(0.5f,4.5f, 30.5f,1f),
         };
 
         SimpleMove canvas = new SimpleMove(arr);
