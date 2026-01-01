@@ -23,10 +23,6 @@ public class Cube {
         edges.add(new Pair<>(3,7));
     }
 
-    float lx;
-    float ly;
-    float lz;
-
     float x;
     float y;
     float z;
@@ -34,7 +30,6 @@ public class Cube {
     float size;
 
     Triple[] nodes;
-
 
     public Cube(float x, float y, float z, float size) {
         this.x = x;
@@ -52,7 +47,7 @@ public class Cube {
         for (int i = -1; i < 2; i+=2) {
             for (int j = -1; j < 2; j+=2) {
                 for (int k = -1; k < 2; k+=2) {
-                    arr[count++] = new Triple(x + lx + i*0.5f, y + ly + j*0.5f, z + lz + k*0.5f);
+                    arr[count++] = new Triple(x + i*0.5f, y + j*0.5f, z + k*0.5f);
                 }
             }
         }
@@ -63,16 +58,21 @@ public class Cube {
 //        rotateY(0.01f);
     }
 
-    public void rotateY(float angle) {
-
-        float c = (float) Math.cos(angle);
-        float s = (float) Math.sin(angle);
-
-        float newY = ly * c - lx * s;
-        float newX = ly * s + lx * c;
-
-        ly = newY;
-        lx = newX;
+    Pair<Float>[] getProjectedDotsForCube(SimpleMove simpleMove) {
+        Pair<Float>[] projectedDots = (Pair<Float>[]) new Pair<?>[8];
+        int count =-1;
+        for(Triple point: getPoints()) {
+            count++;
+            Pair<Float> projected = simpleMove.projectTo2D(point.x, point.y, point.z);
+            if(projected == null) continue;
+            projectedDots[count] = projected;
+        }
+        return projectedDots;
     }
 
+    public boolean isInCube(Triple position){
+        return Math.abs(x - position.x) <= size / 2 &&
+                Math.abs(y - position.y) <= size / 2 &&
+                Math.abs(z - position.z) <= size / 2;
+    }
 }

@@ -17,6 +17,12 @@ public class Triple {
         this.z = position.z;
     }
 
+    public void add(Triple other) {
+        x += other.x;
+        y += other.y;
+        z += other.z;
+    }
+
     @Override
     public String toString() {
         return "Triple{" +
