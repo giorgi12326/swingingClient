@@ -16,7 +16,9 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
 
     public static final float SCREEN_WIDTH = 1080f;
     public static final float SCREEN_HEIGHT = 720f;
+    public static final float moveSpeed = 5f;
     public final Set<Integer> keysDown = new HashSet<>();
+    public static float deltaTime = 1f;
 
     Triple cameraCoords = new Triple(0f,0f,0f);
     Pair<Float> cameraRotation = new Pair<>(0f,0f);
@@ -50,14 +52,19 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
         BufferStrategy bs = getBufferStrategy();
 
         while (true) {
+            long start = System.currentTimeMillis();
             input();
             update();
-            render(bs);
+            render(bs,start);
+
+
             try {
-                Thread.sleep(16);   // ~60 FPS
+                Thread.sleep(5);   // ~60 FPS
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
+            long finish = System.currentTimeMillis();
+            deltaTime = (finish - start)/1000f;
         }
     }
 
@@ -71,9 +78,9 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
         if(keysDown.contains(KeyEvent.VK_A))
             moveLeft();
         if(keysDown.contains(KeyEvent.VK_SPACE))
-            cameraCoords.y += 0.1f;
+            cameraCoords.y += moveSpeed * deltaTime;
         if(keysDown.contains(KeyEvent.VK_SHIFT))
-            cameraCoords.y -= 0.1f;
+            cameraCoords.y -= moveSpeed * deltaTime;
     }
 
     private void update() {
@@ -82,7 +89,7 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
         }
     }
 
-    private void render(BufferStrategy bs) {
+    private void render(BufferStrategy bs, long start) {
         Graphics gj = bs.getDrawGraphics();
         Graphics2D g = (Graphics2D) gj;
 
@@ -118,7 +125,7 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
             ));
 
         }
-        rays.clear();
+//        rays.clear();
         for(Triple point : floor) {
             Pair<Float> projected = projectTo2D(point.x, point.y, point.z);
             if(projected == null) continue;
@@ -137,6 +144,7 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
                         SCREEN_HEIGHT - projectedDots[pair.y].y));// - because panel y starts from top
             }
         }
+        g.drawString("FPS: " + (int)(1/deltaTime), 30, 30);
 
         g.dispose();
         bs.show();
@@ -263,22 +271,22 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
     }
 
     private void moveForward() {
-        cameraCoords.x += 0.1f * (float) Math.sin(cameraRotation.y);
-        cameraCoords.z += 0.1f * (float) Math.cos(cameraRotation.y);
+        cameraCoords.x += moveSpeed * deltaTime * (float) Math.sin(cameraRotation.y);
+        cameraCoords.z += moveSpeed * deltaTime * (float) Math.cos(cameraRotation.y);
     }
 
     private void moveBackward() {
-        cameraCoords.x -= 0.1f * (float) Math.sin(cameraRotation.y);
-        cameraCoords.z -= 0.1f * (float) Math.cos(cameraRotation.y);
+        cameraCoords.x -= moveSpeed * deltaTime * (float) Math.sin(cameraRotation.y);
+        cameraCoords.z -= moveSpeed * deltaTime * (float) Math.cos(cameraRotation.y);
     }
 
     private void moveRight() {
-        cameraCoords.x += 0.1f * (float) Math.cos(cameraRotation.y);
-        cameraCoords.z += 0.1f * (float) -Math.sin(cameraRotation.y);
+        cameraCoords.x += moveSpeed * deltaTime * (float) Math.cos(cameraRotation.y);
+        cameraCoords.z += moveSpeed * deltaTime * (float) -Math.sin(cameraRotation.y);
     }
     private void moveLeft() {
-        cameraCoords.x -= 0.1f * (float)Math.cos(cameraRotation.y);
-        cameraCoords.z += 0.1f * (float)Math.sin(cameraRotation.y);
+        cameraCoords.x -= moveSpeed * deltaTime * (float)Math.cos(cameraRotation.y);
+        cameraCoords.z += moveSpeed * deltaTime * (float)Math.sin(cameraRotation.y);
     }
 
     @Override
