@@ -358,9 +358,16 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
 
     @Override
     public void mousePressed(MouseEvent e) {
-        Ray ray = new Ray(new Triple(cameraCoords), new Pair<>(cameraRotation), 5f);
-        rays.add(ray);
-        ray.deltaDirection = normalization(ray.direction);
+        if(e.getButton() == MouseEvent.BUTTON1) {
+            Ray ray = new Ray(new Triple(cameraCoords), new Pair<>(cameraRotation), 5f);
+            rays.add(ray);
+            ray.deltaDirection = normalization(ray.direction);
+        }
+        if(e.getButton() == MouseEvent.BUTTON2) {
+            Triple normalization = normalization(cameraRotation);
+            floor.add (new Triple(cameraCoords.x + normalization.x,cameraCoords.y + normalization.y, cameraCoords.z + normalization.z));
+        }
+
     }
     @Override
     public void mouseClicked(MouseEvent e) {
