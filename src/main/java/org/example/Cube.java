@@ -1,7 +1,11 @@
 package org.example;
 
+import java.awt.*;
+import java.awt.geom.Line2D;
 import java.util.ArrayList;
 import java.util.List;
+
+import static org.example.SimpleMove.SCREEN_HEIGHT;
 
 public class Cube {
     public static List<Pair<Integer>> edges =  new ArrayList<>();
@@ -74,5 +78,17 @@ public class Cube {
         return Math.abs(x - position.x) <= size / 2 &&
                 Math.abs(y - position.y) <= size / 2 &&
                 Math.abs(z - position.z) <= size / 2;
+    }
+
+    public void draw(Graphics2D g, SimpleMove simpleMove) {
+        Pair<Float>[] projectedDots = getProjectedDotsForCube(simpleMove);
+        for(Pair<Integer> pair : Cube.edges){
+            if(projectedDots[pair.x] == null || projectedDots[pair.y] == null) continue;
+            g.draw(new Line2D.Float(
+                    projectedDots[pair.x].x,
+                    SCREEN_HEIGHT - projectedDots[pair.x].y,// - because panel y starts from top
+                    projectedDots[pair.y].x,
+                    SCREEN_HEIGHT - projectedDots[pair.y].y));// - because panel y starts from top
+        }
     }
 }

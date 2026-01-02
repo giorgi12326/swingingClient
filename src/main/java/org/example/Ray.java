@@ -1,5 +1,10 @@
 package org.example;
 
+import java.awt.*;
+import java.awt.geom.Line2D;
+
+import static org.example.SimpleMove.SCREEN_HEIGHT;
+
 public class Ray {
     Triple position;
     Triple deltaDirection;
@@ -38,4 +43,17 @@ public class Ray {
         return tMax >= 0;
     }
 
+    public void draw(Graphics2D g, SimpleMove simpleMove) {
+        Pair<Float> projected = simpleMove.projectTo2D(position.x, position.y, position.z);
+        Pair<Float> nextProjected = simpleMove.projectTo2D(position.x + deltaDirection.x, position.y + deltaDirection.y, position.z + deltaDirection.z);
+
+        if(projected == null || nextProjected == null) return;
+
+        g.draw(new Line2D.Float(
+                projected.x,
+                SCREEN_HEIGHT - projected.y,
+                nextProjected.x,
+                SCREEN_HEIGHT - nextProjected.y
+        ));
+    }
 }

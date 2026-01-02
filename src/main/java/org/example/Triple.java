@@ -1,5 +1,10 @@
 package org.example;
 
+import java.awt.*;
+import java.awt.geom.Rectangle2D;
+
+import static org.example.SimpleMove.SCREEN_HEIGHT;
+
 public class Triple {
     float x;
     float y;
@@ -30,5 +35,11 @@ public class Triple {
                 ", y=" + y +
                 ", z=" + z +
                 '}';
+    }
+
+    public void draw(Graphics2D g, SimpleMove simpleMove) {
+        Pair<Float> projected = simpleMove.projectTo2D(x, y, z);
+        if(projected == null) return;
+        g.fill(new Rectangle2D.Float(projected.x, SCREEN_HEIGHT - projected.y, 5f, 5f));
     }
 }

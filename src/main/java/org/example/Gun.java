@@ -1,7 +1,11 @@
 package org.example;
 
+import java.awt.*;
+import java.awt.geom.Line2D;
 import java.util.ArrayList;
 import java.util.List;
+
+import static org.example.SimpleMove.SCREEN_HEIGHT;
 
 public class Gun {
     public static List<Pair<Integer>> edges =  new ArrayList<>();
@@ -85,4 +89,16 @@ public class Gun {
         return projectedDots;
     }
 
+    public void draw(Graphics2D g, SimpleMove simpleMove) {
+        Pair<Float>[] projectedDotsForGun = getProjectedDotsForGun(simpleMove);
+
+        for(Pair<Integer> pair : Gun.edges){
+            if(projectedDotsForGun[pair.x] == null || projectedDotsForGun[pair.y] == null) continue;
+            g.draw(new Line2D.Float(
+                    projectedDotsForGun[pair.x].x,
+                    SCREEN_HEIGHT - projectedDotsForGun[pair.x].y,// - because panel y starts from top
+                    projectedDotsForGun[pair.y].x,
+                    SCREEN_HEIGHT - projectedDotsForGun[pair.y].y));// - because panel y starts from top
+        }
+    }
 }

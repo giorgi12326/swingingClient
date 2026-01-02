@@ -153,77 +153,55 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
         gun.y = cameraCoords.y  ;
         gun.z = cameraCoords.z  + 0.3f;
 
+        for (Ray ray : rays) {
+            for (int j = cubes.size()-1; j >= 0; j--) {
+                Cube cube = cubes.get(j);
+                if (ray.rayIntersectsCube(
+                        cube.x - cube.size/2f, cube.y - cube.size/2f, cube.z - cube.size/2f,
+                        cube.x + cube.size/2f, cube.y + cube.size/2f, cube.z + cube.size/2f))
+                    cubes.remove(j);
+            }
+        }
+//        rays.clear();
     }
 
     private void render(BufferStrategy bs) {
         Graphics gj = bs.getDrawGraphics();
         Graphics2D g = (Graphics2D) gj;
 
-        g.setColor(Color.BLACK);
-        g.fillRect(0, 0, getWidth(), getHeight());
+        clearScreen(g);
 
-        g.setColor(Color.lightGray);
-        g.fill(new Rectangle2D.Float(SCREEN_WIDTH/2f - 10f, SCREEN_HEIGHT/2f-2f, 20f, 4f));
-        g.fill(new Rectangle2D.Float(SCREEN_WIDTH/2f - 2f, SCREEN_HEIGHT/2f-10f, 4f, 20f));
+        drawCrosshair(g);
 
         g.setColor(Color.BLUE);
-        for (int i = rays.size()-1; i >= 0 ; i--) {
-            Ray ray = rays.get(i);
-            Pair<Float> projected = projectTo2D(ray.position.x, ray.position.y, ray.position.z);
-            Pair<Float> nextProjected = projectTo2D(ray.position.x + ray.deltaDirection.x, ray.position.y + ray.deltaDirection.y, ray.position.z + ray.deltaDirection.z);
-            if(projected == null || nextProjected == null) continue;
-            for (int j = cubes.size()-1; j >= 0; j--) {
-                Cube cube = cubes.get(j);
-                if (ray.rayIntersectsCube(
-                        cube.x - cube.size/2f, cube.y - cube.size/2f, cube.z - cube.size/2f,
-                        cube.x + cube.size/2f, cube.y + cube.size/2f, cube.z + cube.size/2f
-                ))
-                    cubes.remove(j);
 
-            }
-            g.draw(new Line2D.Float(
-                    projected.x,
-                    SCREEN_HEIGHT - projected.y,
-                    nextProjected.x,
-                    SCREEN_HEIGHT - nextProjected.y
-            ));
+        for (Ray ray : rays)
+            ray.draw(g, this);
 
-        }
+        for(Triple point : floor)
+            point.draw(g,this);
 
-//        rays.clear();
-        for(Triple point : floor) {
-            Pair<Float> projected = projectTo2D(point.x, point.y, point.z);
-            if(projected == null) continue;
-            g.fill(new Rectangle2D.Float(projected.x, SCREEN_HEIGHT - projected.y, 5f, 5f));
-        }
-
-        for (Cube rec: cubes) {
-            Pair<Float>[] projectedDots = rec.getProjectedDotsForCube(this);
-            for(Pair<Integer> pair : Cube.edges){
-                if(projectedDots[pair.x] == null || projectedDots[pair.y] == null) continue;
-                g.draw(new Line2D.Float(
-                        projectedDots[pair.x].x,
-                        SCREEN_HEIGHT - projectedDots[pair.x].y,// - because panel y starts from top
-                        projectedDots[pair.y].x,
-                        SCREEN_HEIGHT - projectedDots[pair.y].y));// - because panel y starts from top
-            }
-        }
+        for (Cube cube: cubes)
+            cube.draw(g, this);
 
         g.setColor(Color.YELLOW);
-        Pair<Float>[] projectedDotsForGun = gun.getProjectedDotsForGun(this);
+        gun.draw(g, this);
 
-        for(Pair<Integer> pair : Gun.edges){
-            if(projectedDotsForGun[pair.x] == null || projectedDotsForGun[pair.y] == null) continue;
-            g.draw(new Line2D.Float(
-                    projectedDotsForGun[pair.x].x,
-                    SCREEN_HEIGHT - projectedDotsForGun[pair.x].y,// - because panel y starts from top
-                    projectedDotsForGun[pair.y].x,
-                    SCREEN_HEIGHT - projectedDotsForGun[pair.y].y));// - because panel y starts from top
-        }
         g.drawString("FPS: " + (int)(1/deltaTime), 30, 30);
 
         g.dispose();
         bs.show();
+    }
+
+    private void clearScreen(Graphics2D g) {
+        g.setColor(Color.BLACK);
+        g.fillRect(0, 0, getWidth(), getHeight());
+    }
+
+    private static void drawCrosshair(Graphics2D g) {
+        g.setColor(Color.lightGray);
+        g.fill(new Rectangle2D.Float(SCREEN_WIDTH/2f - 10f, SCREEN_HEIGHT/2f-2f, 20f, 4f));
+        g.fill(new Rectangle2D.Float(SCREEN_WIDTH/2f - 2f, SCREEN_HEIGHT/2f-10f, 4f, 20f));
     }
 
     private Triple normalization(Pair<Float> rotation) {
@@ -265,8 +243,6 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
         x -= cameraCoords.x;
         y -= cameraCoords.y;
         z -= cameraCoords.z;
-
-
 
         float d = x/z;
         float t = y/z;
