@@ -7,7 +7,7 @@ import java.util.List;
 
 import static org.example.SimpleMove.SCREEN_HEIGHT;
 
-public class Gun {
+public class Gun extends Projectable {
     public static List<Pair<Integer>> edges =  new ArrayList<>();
 
     float x;
@@ -54,6 +54,7 @@ public class Gun {
         edges.add(new Pair<>(8,9));
 
     }
+    @Override
     public Triple[] getNodes() {
         return new Triple[]{
             new Triple(x + 0.04f,y + 0.04f, z + 0.1f),
@@ -77,28 +78,10 @@ public class Gun {
             new Triple(x + 0.01f,y - 0.1f, z-0.18f),
         };
     }
-    Pair<Float>[] getProjectedDotsForGun(SimpleMove simpleMove) {
-        Pair<Float>[] projectedDots = (Pair<Float>[]) new Pair<?>[nodes.length];
-        int count =-1;
-        for(Triple point: getNodes()) {
-            count++;
-            Pair<Float> projected = simpleMove.projectTo2DWithoutRotatingAgainstCamera(point.x, point.y, point.z);
-            if(projected == null) continue;
-            projectedDots[count] = projected;
-        }
-        return projectedDots;
-    }
 
-    public void draw(Graphics2D g, SimpleMove simpleMove) {
-        Pair<Float>[] projectedDotsForGun = getProjectedDotsForGun(simpleMove);
 
-        for(Pair<Integer> pair : Gun.edges){
-            if(projectedDotsForGun[pair.x] == null || projectedDotsForGun[pair.y] == null) continue;
-            g.draw(new Line2D.Float(
-                    projectedDotsForGun[pair.x].x,
-                    SCREEN_HEIGHT - projectedDotsForGun[pair.x].y,// - because panel y starts from top
-                    projectedDotsForGun[pair.y].x,
-                    SCREEN_HEIGHT - projectedDotsForGun[pair.y].y));// - because panel y starts from top
-        }
+    @Override
+    protected Pair<Float> projectWithStrategy(SimpleMove simpleMove, Triple point, Triple rotatedPoint) {
+        return simpleMove.projectTo2DWithoutRotatingAgainstCamera(point.x, point.y, point.z);
     }
 }

@@ -167,11 +167,7 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
             swingAround(anchor);
         }
 
-        if(grapplingHead.shot && grapplingHead.flying){
-            grapplingHead.x += grapplingHead.direction.x * 20f * deltaTime;
-            grapplingHead.y += grapplingHead.direction.y * 20f * deltaTime;
-            grapplingHead.z += grapplingHead.direction.z * 20f * deltaTime;
-        }
+        moveShootable(grapplingHead, 20f);
 
         if(!grapplingHead.shot){
             grapplingHead.x = cameraCoords.x + 0.1f;
@@ -180,14 +176,8 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
         }
 
         for(BulletHead bulletHead: bullets) {
-            if(bulletHead.shot && bulletHead.flying){
-                bulletHead.x += bulletHead.direction.x * 40f * deltaTime;
-                bulletHead.y += bulletHead.direction.y * 40f * deltaTime;
-                bulletHead.z += bulletHead.direction.z * 40f * deltaTime;
-            }
-
+            moveShootable(bulletHead, 40f);
         }
-
 
         if(heldBullet != null){
             heldBullet.x = cameraCoords.x;
@@ -240,6 +230,14 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
 
     }
 
+    private static void moveShootable(Shootable shootable, float moveSpeed) {
+        if(shootable.shot && shootable.flying){
+            shootable.x += shootable.direction.x * moveSpeed * deltaTime;
+            shootable.y += shootable.direction.y * moveSpeed * deltaTime;
+            shootable.z += shootable.direction.z * moveSpeed * deltaTime;
+        }
+    }
+
     private void spawnCubeRandomlyAtDistance(float radius) {
         float x = (float)(Math.random() * 2 * radius - radius);
         float z = (float)(Math.random() * 2 * radius - radius);
@@ -271,14 +269,12 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
         gun.draw(g, this);
 
 
-
-
         if(grapplingEquiped) {
             grapplingHead.drawEdges(g, this);
 
-            Pair<Float>[] projectedDotsForGun = gun.getProjectedDotsForGun(this);
+            Pair<Float>[] projectedDotsForGun = gun.getProjectedDots(this);
 
-            Pair<Float>[] hookProjected = grapplingHead.getProjectedDotsForGun(this);
+            Pair<Float>[] hookProjected = grapplingHead.getProjectedDots(this);
             if(projectedDotsForGun[Gun.edges.get(12).x] != null && hookProjected[GrapplingHead.edges.get(16).y] != null)
                 g.draw(new Line2D.Float(
                         projectedDotsForGun[Gun.edges.get(12).x].x,
@@ -309,13 +305,13 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
         g.fillRect(0, 0, getWidth(), getHeight());
     }
 
-    private static void drawCrosshair(Graphics2D g) {
+    private void drawCrosshair(Graphics2D g) {
         g.setColor(Color.lightGray);
         g.fill(new Rectangle2D.Float(SCREEN_WIDTH/2f - 10f, SCREEN_HEIGHT/2f-2f, 20f, 4f));
         g.fill(new Rectangle2D.Float(SCREEN_WIDTH/2f - 2f, SCREEN_HEIGHT/2f-10f, 4f, 20f));
     }
 
-    private Triple normalization(Pair<Float> rotation) {
+    private Triple rotationToDirection(Pair<Float> rotation) {
         float dx = (float)(Math.cos(rotation.x) * Math.sin(rotation.y));
         float dy = (float)(Math.sin(rotation.x));
         float dz = (float)(Math.cos(rotation.x) * Math.cos(rotation.y));
@@ -458,15 +454,14 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
         if(e.getButton() == MouseEvent.BUTTON1) {
             Ray ray = new Ray(new Triple(cameraCoords), new Pair<>(cameraRotation), 5f);
             if(grapplingEquiped && !grapplingHead.shot){
-                ray.deltaDirection = normalization(ray.direction);
-                prepareHookForFlying(ray);
+                prepareShootableForFlying(ray.direction, grapplingHead);
             }
             else {
-                prepareBulletForFlying(ray,heldBullet);
+                prepareBulletForFlying(ray.direction,heldBullet);
             }
         }
         if(e.getButton() == MouseEvent.BUTTON2) {
-            Triple normalization = normalization(cameraRotation);
+            Triple normalization = rotationToDirection(cameraRotation);
             floor.add (new Triple(cameraCoords.x + normalization.x,cameraCoords.y + normalization.y, cameraCoords.z + normalization.z));
         }
         if(e.getButton() == MouseEvent.BUTTON3) {
@@ -477,33 +472,27 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
 
     }
 
-    private void prepareBulletForFlying(Ray ray, BulletHead bulletHead) {
+    private void prepareBulletForFlying(Pair<Float> direction, BulletHead bulletHead) {
         if(bulletHead == null)
             return;
-        bulletHead.direction = normalization(ray.direction);
-        bulletHead.rotation = new Pair<>(cameraRotation.x, cameraRotation.y);
-        Triple newPosition = new Triple(bulletHead.x, bulletHead.y, bulletHead.z).rotateXY(cameraCoords, bulletHead.rotation);
-        bulletHead.x = newPosition.x;
-        bulletHead.y = newPosition.y;
-        bulletHead.z = newPosition.z;
-        bulletHead.shot = true;
-        bulletHead.flying = true;
+
+        prepareShootableForFlying(direction, bulletHead);
+
         bullets.add(heldBullet);
         heldBullet = null;
         bulletShotLastTime = System.currentTimeMillis();
 
     }
 
-    private void prepareHookForFlying(Ray ray) {
-        grapplingHead.direction = normalization(ray.direction);
-        grapplingHead.rotation = new Pair<>(cameraRotation.x, cameraRotation.y);
-        Triple newPosition = new Triple(grapplingHead.x, grapplingHead.y, grapplingHead.z).rotateXY(cameraCoords, grapplingHead.rotation);
-        grapplingHead.x = newPosition.x;
-        grapplingHead.y = newPosition.y;
-        grapplingHead.z = newPosition.z;
-        grapplingHead.shot = true;
-        grapplingHead.flying = true;
-
+    private void prepareShootableForFlying(Pair<Float> direction, Shootable shootable) {
+        shootable.direction = rotationToDirection(direction);
+        shootable.rotation = new Pair<>(cameraRotation.x, cameraRotation.y);
+        Triple newPosition = new Triple(shootable.x, shootable.y, shootable.z).rotateXY(cameraCoords, shootable.rotation);
+        shootable.x = newPosition.x;
+        shootable.y = newPosition.y;
+        shootable.z = newPosition.z;
+        shootable.shot = true;
+        shootable.flying = true;
     }
 
     @Override
