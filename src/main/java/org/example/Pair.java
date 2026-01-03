@@ -21,4 +21,7 @@ public class Pair<T> {
                 ", y=" + y +
                 '}';
     }
+    public Pair<T> copy(){
+        return new Pair<>(x, y);
+    }
 }

@@ -6,6 +6,7 @@ import java.awt.Graphics;
 import java.awt.Frame;
 import java.awt.Color;
 import java.awt.event.*;
+import java.awt.geom.Line2D;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferStrategy;
 import java.util.*;
@@ -164,12 +165,13 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
             swingAround(anchor);
         }
 
-        if(grapplingHead.flying){
+        if(grapplingHead.shot && grapplingHead.flying){
             grapplingHead.x += grapplingHead.direction.x * 10f * deltaTime;
             grapplingHead.y += grapplingHead.direction.y * 10f * deltaTime;
             grapplingHead.z += grapplingHead.direction.z * 10f * deltaTime;
         }
-        else{
+
+        if(!grapplingHead.shot){
             grapplingHead.x = cameraCoords.x + 0.1f;
             grapplingHead.y = cameraCoords.y;
             grapplingHead.z = cameraCoords.z + 1f;
@@ -178,6 +180,15 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
         gun.x = cameraCoords.x + 0.1f;
         gun.y = cameraCoords.y;
         gun.z = cameraCoords.z + 0.3f;
+
+        if(grapplingHead.shot)
+            for(Cube cube : cubes) {
+                if(cube.isPointInCube(grapplingHead.getNodes()[16])) {
+                    swinging = true;
+                    grapplingHead.flying = false;
+                    anchor = new Triple(cube.x + cube.size / 2f, cube.y + cube.size / 2f, cube.z + cube.size / 2f);
+                }
+            }
 
         for (Ray ray : rays) {
             for (int j = deathCubes.size()-1; j >= 0; j--) {
@@ -245,8 +256,21 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
         g.setColor(Color.YELLOW);
         gun.draw(g, this);
 
-        if(grapplingEquiped)
+        if(grapplingEquiped) {
             grapplingHead.drawEdges(g, this);
+
+            Pair<Float>[] projectedDotsForGun = gun.getProjectedDotsForGun(this);
+
+            Pair<Float>[] hookProjected = grapplingHead.getProjectedDotsForGun(this);
+            if(projectedDotsForGun[Gun.edges.get(12).x] != null && hookProjected[GrapplingHead.edges.get(16).y] != null)
+                g.draw(new Line2D.Float(
+                        projectedDotsForGun[Gun.edges.get(12).x].x,
+                        SCREEN_HEIGHT -  projectedDotsForGun[Gun.edges.get(12).x].y,// - because panel y starts from top
+                        hookProjected[GrapplingHead.edges.get(16).y].x,
+                        SCREEN_HEIGHT - hookProjected[GrapplingHead.edges.get(16).y].y));// - because panel y starts from top
+
+
+        }
 
         g.drawString("FPS: " + (int)(1/deltaTime), 30, 30);
 
@@ -326,7 +350,7 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
                 new Cube(0.5f,3.5f, 12.5f,1f),
                 new Cube(0.5f,3.5f, 15.5f,1f),
                 new Cube(0.5f,4.5f, 18.5f,1f),
-                new Cube(0.5f,4.5f, 23.5f,1f),
+                new Cube(0.5f,7.5f, 23.5f,1f),
                 new Cube(0.5f,4.5f, 30.5f,1f),
         };
 
@@ -390,7 +414,7 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
 
     public void swingAround(Triple anchor) {
         Triple toAnchor = anchor.sub(cameraCoords).normalize();
-        Triple tangent = new Triple(-toAnchor.z, 0f, toAnchor.x).normalize();
+        Triple tangent = new Triple(0f, -toAnchor.z, toAnchor.y).normalize();
         cameraCoords = cameraCoords.add(tangent.scale(moveSpeed * deltaTime * 2));
     }
 
@@ -411,25 +435,10 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
     public void mousePressed(MouseEvent e) {
         if(e.getButton() == MouseEvent.BUTTON1) {
             Ray ray = new Ray(new Triple(cameraCoords), new Pair<>(cameraRotation), 5f);
-            if(grapplingEquiped){
+            if(grapplingEquiped && !grapplingHead.shot){
                 ray.deltaDirection = normalization(ray.direction);
 
-                grapplingHead.direction = normalization(ray.direction);
-                grapplingHead.rotation = new Pair<>(cameraRotation.x, cameraRotation.y);
-                grapplingHead.flying = true;
-                Triple newPosition = new Triple(grapplingHead.x, grapplingHead.y, grapplingHead.z).rotateXY(cameraCoords, cameraRotation);
-                grapplingHead.x = newPosition.x;
-                grapplingHead.y = newPosition.y;
-                grapplingHead.z = newPosition.z;
-
-                for(Cube cube : cubes) {
-                    if(ray.rayIntersectsCube(
-                            cube.x - cube.size/2f, cube.y - cube.size/2f, cube.z - cube.size/2f,
-                            cube.x + cube.size/2f, cube.y + cube.size/2f, cube.z + cube.size/2f)) {
-                        swinging = true;
-                        anchor = new Triple(cube.x + cube.size / 2f, cube.y + cube.size / 2f, cube.z + cube.size / 2f);
-                    }
-                }
+                prepareHookForFlying(ray);
             }
             else {
                 rays.add(ray);
@@ -441,12 +450,25 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
             floor.add (new Triple(cameraCoords.x + normalization.x,cameraCoords.y + normalization.y, cameraCoords.z + normalization.z));
         }
         if(e.getButton() == MouseEvent.BUTTON3) {
-            grapplingEquiped = true;
+            grapplingEquiped = !grapplingEquiped;
             swinging = false;
-            grapplingHead.flying = false;
+            grapplingHead.shot = false;
         }
 
     }
+
+    private void prepareHookForFlying(Ray ray) {
+        grapplingHead.direction = normalization(ray.direction);
+        grapplingHead.rotation = new Pair<>(cameraRotation.x, cameraRotation.y);
+        Triple newPosition = new Triple(grapplingHead.x, grapplingHead.y, grapplingHead.z).rotateXY(cameraCoords, grapplingHead.rotation);
+        grapplingHead.x = newPosition.x;
+        grapplingHead.y = newPosition.y;
+        grapplingHead.z = newPosition.z;
+        grapplingHead.shot = true;
+        grapplingHead.flying = true;
+
+    }
+
     @Override
     public void mouseClicked(MouseEvent e) {
 

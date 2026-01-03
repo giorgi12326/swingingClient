@@ -14,8 +14,9 @@ public class GrapplingHead {
     float y;
     float z;
 
-    Pair<Float> rotation;
+    Pair<Float> rotation = new Pair<>(0f,0f);
 
+    boolean shot;
     boolean flying;
 
     Triple direction;
@@ -266,11 +267,13 @@ public class GrapplingHead {
         Pair<Float>[] projectedDots = (Pair<Float>[]) new Pair<?>[nodes.length];
         int count =-1;
         for(Triple point: getNodes()) {
-            Triple rotatedPoint = point.rotateXY(new Triple(simpleMove.grapplingHead.x, simpleMove.grapplingHead.y, simpleMove.grapplingHead.z), SimpleMove.cameraRotation);
+            Triple rotatedPoint = point.rotateXY(new Triple(simpleMove.grapplingHead.x, simpleMove.grapplingHead.y, simpleMove.grapplingHead.z), rotation);
             count++;
             Pair<Float> projected;
-            if(flying)
-               projected = simpleMove.projectTo2D(rotatedPoint.x, rotatedPoint.y, rotatedPoint.z);
+            if(shot && flying)
+                projected = simpleMove.projectTo2D(rotatedPoint.x, rotatedPoint.y, rotatedPoint.z);
+            else if(shot)
+                projected = simpleMove.projectTo2D(rotatedPoint.x, rotatedPoint.y, rotatedPoint.z);
             else
                projected = simpleMove.projectTo2DWithoutRotatingAgainstCamera(point.x, point.y, point.z);
             if(projected == null) continue;
@@ -290,6 +293,7 @@ public class GrapplingHead {
                     projectedDotsForGun[pair.y].x,
                     SCREEN_HEIGHT - projectedDotsForGun[pair.y].y));// - because panel y starts from top
         }
+
     }
 
 
