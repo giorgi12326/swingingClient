@@ -6,7 +6,6 @@ import java.awt.Graphics;
 import java.awt.Frame;
 import java.awt.Color;
 import java.awt.event.*;
-import java.awt.geom.Line2D;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferStrategy;
 import java.util.*;
@@ -16,15 +15,23 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
     public static final float SCREEN_WIDTH = 1280f;
     public static final float SCREEN_HEIGHT = 720f;
     public static final float moveSpeed = 5f;
+    public static  boolean deathCubeSpawnMode = false;
+    public static boolean hit = false;
     public final Set<Integer> keysDown = new HashSet<>();
     public static float deltaTime = 1f;
     public static float FOV = 1;
     long lastTime = System.nanoTime();
 
+    float timer = 0f; // class-level variable
+
+    public static boolean swinging = false;
+    public static boolean grapplingEquiped = false;
+
     Triple cameraCoords = new Triple(0f,0f,0f);
-    Pair<Float> cameraRotation = new Pair<>(0f,0f);
+    public static Pair<Float> cameraRotation = new Pair<>(0f,0f);
 
     List<Cube> cubes;
+    List<DeathCube> deathCubes = new ArrayList<>();
     List<Ray> rays = new ArrayList<>();
     List<Triple> floor = new ArrayList<>();
 
@@ -35,6 +42,8 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
     private Triple sum;
 
     Gun gun = new Gun(0,0,0);
+    GrapplingHead grapplingHead = new GrapplingHead(0,0f,0);
+    private Triple anchor;
 
     public SimpleMove(Cube... cubes) {
         this.cubes = new ArrayList<>(Arrays.stream(cubes).toList());
@@ -48,7 +57,6 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
                 floor.add(new Triple(i*1f, 0f, j*1f));
             }
         }
-
     }
 
     public void start() {
@@ -81,19 +89,22 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
         sum = new Triple(0f,0f,0f);
 
         if (keysDown.contains(KeyEvent.VK_W))
-            sum.add(moveForward());
+            sum = sum.add(moveForward());
         if (keysDown.contains(KeyEvent.VK_S))
-            sum.add(moveBackward());
+            sum = sum.add(moveBackward());
         if (keysDown.contains(KeyEvent.VK_D))
-            sum.add(moveRight());
+            sum = sum.add(moveRight());
         if (keysDown.contains(KeyEvent.VK_A))
-            sum.add(moveLeft());
+            sum = sum.add(moveLeft());
+        if (keysDown.contains(KeyEvent.VK_G))
+            deathCubeSpawnMode = true;
+        if (keysDown.contains(KeyEvent.VK_H))
+            deathCubeSpawnMode = false;
 
         if(keysDown.contains(KeyEvent.VK_SPACE) && !inAir) {
             verticalSpeed = 6f;
             inAir = true;
         }
-
 
         if(keysDown.contains(KeyEvent.VK_SHIFT))
             cameraCoords.y -= moveSpeed * deltaTime;
@@ -103,35 +114,36 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
         for(Cube cube : cubes) {
             cube.update();
         }
-
+        for(DeathCube deathCube : deathCubes) {
+            deathCube.update();
+        }
 
         verticalSpeed -= GRAVITY * deltaTime;
         float dy = verticalSpeed * deltaTime;
         sum.y += dy;
         cameraCoords.y += sum.y;
 
-        for(Cube cube: cubes) {
-            if(cube.isInCube(cameraCoords)) {
-                if(sum.y > 0) {
-                    cameraCoords.y = cube.y - cube.size/2 - 0.0001f;
+        for (Cube cube : cubes) {
+            if (cube.isPointInCube(cameraCoords)) {
+                if (sum.y > 0) {
+                    cameraCoords.y = cube.y - cube.size / 2 - 0.0001f;
                     verticalSpeed = 0f;
-                }
-                else {
-                    cameraCoords.y = cube.y + cube.size/2 + 0.0001f;
+                } else {
+                    cameraCoords.y = cube.y + cube.size / 2 + 0.0001f;
                     verticalSpeed = 0f;
                     inAir = false;
                 }
             }
         }
-        if(cameraCoords.y <= 0f) {
+        if (cameraCoords.y <= 0f) {
             cameraCoords.y = 0.0001f;
             verticalSpeed = 0f;
             inAir = false;
         }
 
         cameraCoords.x += sum.x;
-        for(Cube cube : cubes) {
-            if (cube.isInCube(cameraCoords)) {
+        for (Cube cube : cubes) {
+            if (cube.isPointInCube(cameraCoords)) {
                 if (sum.x > 0)
                     cameraCoords.x = cube.x - cube.size / 2 - 0.0001f;
                 else
@@ -140,29 +152,72 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
         }
 
         cameraCoords.z += sum.z;
-        for(Cube cube : cubes) {
-            if (cube.isInCube(cameraCoords)) {
+        for (Cube cube : cubes) {
+            if (cube.isPointInCube(cameraCoords)) {
                 if (sum.z > 0)
                     cameraCoords.z = cube.z - cube.size / 2 - 0.0001f;
                 else
                     cameraCoords.z = cube.z + cube.size / 2 + 0.0001f;
             }
         }
+        if(swinging) {
+            swingAround(anchor);
+        }
 
-        gun.x = cameraCoords.x  + 0.1f;
-        gun.y = cameraCoords.y  ;
-        gun.z = cameraCoords.z  + 0.3f;
+        if(grapplingHead.flying){
+            grapplingHead.x += grapplingHead.direction.x * 10f * deltaTime;
+            grapplingHead.y += grapplingHead.direction.y * 10f * deltaTime;
+            grapplingHead.z += grapplingHead.direction.z * 10f * deltaTime;
+        }
+        else{
+            grapplingHead.x = cameraCoords.x + 0.1f;
+            grapplingHead.y = cameraCoords.y;
+            grapplingHead.z = cameraCoords.z + 1f;
+        }
+
+        gun.x = cameraCoords.x + 0.1f;
+        gun.y = cameraCoords.y;
+        gun.z = cameraCoords.z + 0.3f;
 
         for (Ray ray : rays) {
-            for (int j = cubes.size()-1; j >= 0; j--) {
-                Cube cube = cubes.get(j);
+            for (int j = deathCubes.size()-1; j >= 0; j--) {
+                DeathCube deathCube = deathCubes.get(j);
                 if (ray.rayIntersectsCube(
-                        cube.x - cube.size/2f, cube.y - cube.size/2f, cube.z - cube.size/2f,
-                        cube.x + cube.size/2f, cube.y + cube.size/2f, cube.z + cube.size/2f))
-                    cubes.remove(j);
+                        deathCube.x - deathCube.size/2f, deathCube.y - deathCube.size/2f, deathCube.z - deathCube.size/2f,
+                        deathCube.x + deathCube.size/2f, deathCube.y + deathCube.size/2f, deathCube.z + deathCube.size/2f))
+                    deathCubes.remove(j);
             }
         }
-//        rays.clear();
+        boolean localHit = false;
+        for(DeathCube deathCube : deathCubes) {
+            if(deathCube.isPointInCube(cameraCoords))
+                localHit = true;
+        }
+
+        timer += deltaTime;
+
+        if (deathCubeSpawnMode && timer >= 3f) {
+            timer = 0f;
+            spawnCubeRandomlyAtDistance(64f);
+        }
+
+        for (int i = deathCubes.size() - 1; i >= 0; i--) {
+            DeathCube deathCube = deathCubes.get(i);
+            if(deathCube.markedAsDeleted || deathCube.y < 0)
+                deathCubes.remove(i);
+        }
+
+        hit = localHit;
+
+        rays.clear();
+    }
+
+    private void spawnCubeRandomlyAtDistance(float radius) {
+        float x = (float)(Math.random() * 2 * radius - radius);
+        float z = (float)(Math.random() * 2 * radius - radius);
+        float y = 10f;
+        deathCubes.add(new DeathCube(cameraCoords.x + x, cameraCoords.y + y, cameraCoords.z + z, cameraCoords, 1f));
+
     }
 
     private void render(BufferStrategy bs) {
@@ -184,8 +239,14 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
         for (Cube cube: cubes)
             cube.draw(g, this);
 
+        for (DeathCube cube: deathCubes)
+            cube.draw(g, this);
+
         g.setColor(Color.YELLOW);
         gun.draw(g, this);
+
+        if(grapplingEquiped)
+            grapplingHead.drawEdges(g, this);
 
         g.drawString("FPS: " + (int)(1/deltaTime), 30, 30);
 
@@ -194,7 +255,10 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
     }
 
     private void clearScreen(Graphics2D g) {
-        g.setColor(Color.BLACK);
+        if(hit)
+            g.setColor(Color.RED);
+        else
+            g.setColor(Color.BLACK);
         g.fillRect(0, 0, getWidth(), getHeight());
     }
 
@@ -288,6 +352,10 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
             FOV*=1.1f;
         if(e.getKeyCode() == KeyEvent.VK_0)
             FOV*=0.9f;
+        if(e.getKeyCode() == KeyEvent.VK_Y)
+            swinging = true;
+        if(e.getKeyCode() == KeyEvent.VK_T)
+            swinging = false;
         keysDown.add(e.getKeyCode());
     }
 
@@ -320,6 +388,13 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
         keysDown.remove(e.getKeyCode());
     }
 
+    public void swingAround(Triple anchor) {
+        Triple toAnchor = anchor.sub(cameraCoords).normalize();
+        Triple tangent = new Triple(-toAnchor.z, 0f, toAnchor.x).normalize();
+        cameraCoords = cameraCoords.add(tangent.scale(moveSpeed * deltaTime * 2));
+    }
+
+
     @Override
     public void mouseMoved(MouseEvent e) {
         float a = (float) Math.PI * -((2 * e.getY() / SCREEN_HEIGHT) - 1);// - because panel y starts from top
@@ -336,12 +411,39 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
     public void mousePressed(MouseEvent e) {
         if(e.getButton() == MouseEvent.BUTTON1) {
             Ray ray = new Ray(new Triple(cameraCoords), new Pair<>(cameraRotation), 5f);
-            rays.add(ray);
-            ray.deltaDirection = normalization(ray.direction);
+            if(grapplingEquiped){
+                ray.deltaDirection = normalization(ray.direction);
+
+                grapplingHead.direction = normalization(ray.direction);
+                grapplingHead.rotation = new Pair<>(cameraRotation.x, cameraRotation.y);
+                grapplingHead.flying = true;
+                Triple newPosition = new Triple(grapplingHead.x, grapplingHead.y, grapplingHead.z).rotateXY(cameraCoords, cameraRotation);
+                grapplingHead.x = newPosition.x;
+                grapplingHead.y = newPosition.y;
+                grapplingHead.z = newPosition.z;
+
+                for(Cube cube : cubes) {
+                    if(ray.rayIntersectsCube(
+                            cube.x - cube.size/2f, cube.y - cube.size/2f, cube.z - cube.size/2f,
+                            cube.x + cube.size/2f, cube.y + cube.size/2f, cube.z + cube.size/2f)) {
+                        swinging = true;
+                        anchor = new Triple(cube.x + cube.size / 2f, cube.y + cube.size / 2f, cube.z + cube.size / 2f);
+                    }
+                }
+            }
+            else {
+                rays.add(ray);
+                ray.deltaDirection = normalization(ray.direction);
+            }
         }
         if(e.getButton() == MouseEvent.BUTTON2) {
             Triple normalization = normalization(cameraRotation);
             floor.add (new Triple(cameraCoords.x + normalization.x,cameraCoords.y + normalization.y, cameraCoords.z + normalization.z));
+        }
+        if(e.getButton() == MouseEvent.BUTTON3) {
+            grapplingEquiped = true;
+            swinging = false;
+            grapplingHead.flying = false;
         }
 
     }

@@ -74,7 +74,7 @@ public class Cube {
         return projectedDots;
     }
 
-    public boolean isInCube(Triple position){
+    public boolean isPointInCube(Triple position){
         return Math.abs(x - position.x) <= size / 2 &&
                 Math.abs(y - position.y) <= size / 2 &&
                 Math.abs(z - position.z) <= size / 2;
