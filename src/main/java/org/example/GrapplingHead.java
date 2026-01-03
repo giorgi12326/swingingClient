@@ -267,7 +267,7 @@ public class GrapplingHead {
         Pair<Float>[] projectedDots = (Pair<Float>[]) new Pair<?>[nodes.length];
         int count =-1;
         for(Triple point: getNodes()) {
-            Triple rotatedPoint = point.rotateXY(new Triple(simpleMove.grapplingHead.x, simpleMove.grapplingHead.y, simpleMove.grapplingHead.z), rotation);
+            Triple rotatedPoint = point.rotateXY(new Triple(x, y, z), rotation);
             count++;
             Pair<Float> projected;
             if(shot && flying)
