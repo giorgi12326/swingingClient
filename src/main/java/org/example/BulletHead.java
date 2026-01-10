@@ -8,6 +8,7 @@ public class BulletHead extends Shootable {
 
     public BulletHead() {
         nodes = getNodes();
+        moveSpeed = 80f;
     }
 
     static{
@@ -54,4 +55,6 @@ public class BulletHead extends Shootable {
     public List<Pair<Integer>> getStaticEdges() {
         return edges;
     }
+
+
 }

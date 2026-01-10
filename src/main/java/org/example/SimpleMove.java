@@ -15,7 +15,7 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
 
     public static final float SCREEN_WIDTH = 1280f;
     public static final float SCREEN_HEIGHT = 720f;
-    public static final float moveSpeed = 5f;
+    public static final float moveSpeed = 10f;
     public static  boolean deathCubeSpawnMode = false;
     public static boolean hit = false;
     public final Set<Integer> keysDown = new HashSet<>();
@@ -27,9 +27,9 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
     long deathCubeLastSpawnTime = System.currentTimeMillis(); // class-level variable
 
     public static boolean swinging = false;
-    public static boolean grapplingEquiped = false;
+    public static boolean grapplingEquipped = false;
 
-    Triple cameraCoords = new Triple(0f,0f,0f);
+    public static Triple cameraCoords = new Triple(0f,0f,0f);
     public static Pair<Float> cameraRotation = new Pair<>(0f,0f);
 
     List<Cube> cubes;
@@ -38,8 +38,10 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
     List<BulletHead> bullets = new ArrayList<>();
     BulletHead heldBullet = new BulletHead();
 
-    public static final float GRAVITY = 10f; // units per second²
-    public static float verticalSpeed = 0f;
+    public static final float GRAVITY = 10f;
+    public static float speedX = 0f;
+    public static float speedY = 0f;
+    public static float speedZ = 0f;
 
     private boolean inAir;
     private Triple sum;
@@ -48,8 +50,18 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
     GrapplingHead grapplingHead = new GrapplingHead(0,0f,0);
     private Triple anchor;
 
-    public SimpleMove(Cube... cubes) {
-        this.cubes = new ArrayList<>(Arrays.stream(cubes).toList());
+    public SimpleMove() {
+        this.cubes = new ArrayList<>();
+        cubes.add(new Cube(0.5f,0.5f, 3.5f,1f));
+        cubes.add(new Cube(0.5f,1.5f, 5.5f,1f));
+        cubes.add(new Cube(0.5f,2.5f, 6.5f,1f));
+        cubes.add(new Cube(0.5f,3.5f, 9.5f,1f));
+        cubes.add(new Cube(0.5f,3.5f, 12.5f,1f));
+        cubes.add(new Cube(0.5f,3.5f, 15.5f,1f));
+        cubes.add(new Cube(0.5f,4.5f, 18.5f,1f));
+        cubes.add(new Cube(0.5f,4.5f, 23.5f,1f));
+        cubes.add(new Cube(0.5f,4.5f, 30.5f,1f));
+
         setSize((int)SCREEN_WIDTH, (int)SCREEN_HEIGHT);
         addKeyListener(this);
         addMouseMotionListener(this);
@@ -105,7 +117,7 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
             deathCubeSpawnMode = false;
 
         if(keysDown.contains(KeyEvent.VK_SPACE) && !inAir) {
-            verticalSpeed = 6f;
+            speedY = 6f;
             inAir = true;
         }
 
@@ -120,9 +132,9 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
         for(DeathCube deathCube : deathCubes) {
             deathCube.update();
         }
-
-        verticalSpeed -= GRAVITY * deltaTime;
-        float dy = verticalSpeed * deltaTime;
+        if(!swinging)
+            speedY -= GRAVITY * deltaTime;
+        float dy = speedY * deltaTime;
         sum.y += dy;
         cameraCoords.y += sum.y;
 
@@ -130,44 +142,39 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
             if (cube.isPointInCube(cameraCoords)) {
                 if (sum.y > 0) {
                     cameraCoords.y = cube.y - cube.size / 2 - 0.0001f;
-                    verticalSpeed = 0f;
                 } else {
                     cameraCoords.y = cube.y + cube.size / 2 + 0.0001f;
-                    verticalSpeed = 0f;
+                    speedY = 0f;
                     inAir = false;
                 }
+                speedY = 0f;
+
             }
         }
         if (cameraCoords.y <= 0f) {
             cameraCoords.y = 0.0001f;
-            verticalSpeed = 0f;
+            speedY = 0f;
             inAir = false;
         }
 
-        cameraCoords.x += sum.x;
+        moveCharacter();
+
         for (Cube cube : cubes) {
             if (cube.isPointInCube(cameraCoords)) {
-                if (sum.x > 0)
-                    cameraCoords.x = cube.x - cube.size / 2 - 0.0001f;
-                else
-                    cameraCoords.x = cube.x + cube.size / 2 + 0.0001f;
+                if (speedZ > 0)
+                    cameraCoords.z = cube.z - cube.size / 2 - 0.0001f;
+                else if (speedZ < 0)
+                    cameraCoords.z = cube.z + cube.size / 2 + 0.0001f;
+
+                speedZ = 0f;
             }
         }
 
-        cameraCoords.z += sum.z;
-        for (Cube cube : cubes) {
-            if (cube.isPointInCube(cameraCoords)) {
-                if (sum.z > 0)
-                    cameraCoords.z = cube.z - cube.size / 2 - 0.0001f;
-                else
-                    cameraCoords.z = cube.z + cube.size / 2 + 0.0001f;
-            }
-        }
         if(swinging) {
             swingAround(anchor);
         }
 
-        moveShootable(grapplingHead, 20f);
+        grapplingHead.update();
 
         if(!grapplingHead.shot){
             grapplingHead.x = cameraCoords.x + 0.1f;
@@ -176,7 +183,7 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
         }
 
         for(BulletHead bulletHead: bullets) {
-            moveShootable(bulletHead, 40f);
+            bulletHead.update();
         }
 
         if(heldBullet != null){
@@ -185,8 +192,9 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
             heldBullet.z = cameraCoords.z + 0.8f;
 
         }
-        else if(System.currentTimeMillis() - bulletShotLastTime > 1000){
+        else if(System.currentTimeMillis() - bulletShotLastTime > 200){
             heldBullet = new BulletHead();
+            heldBullet.x = 1000f;
         }
 
         gun.x = cameraCoords.x + 0.1f;
@@ -226,17 +234,59 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
                 deathCubes.remove(i);
         }
 
+        for (int i = bullets.size() - 1; i >= 0; i--) {
+            BulletHead bullet = bullets.get(i);
+            if(bullet.markAsDeleted)
+                bullets.remove(i);
+        }
+
         hit = localHit;
 
     }
 
-    private static void moveShootable(Shootable shootable, float moveSpeed) {
-        if(shootable.shot && shootable.flying){
-            shootable.x += shootable.direction.x * moveSpeed * deltaTime;
-            shootable.y += shootable.direction.y * moveSpeed * deltaTime;
-            shootable.z += shootable.direction.z * moveSpeed * deltaTime;
+    private void moveCharacter() {
+        float inputX = sum.x;
+        float inputZ = sum.z;
+
+        float inputLength = (float)Math.sqrt(inputX*inputX + inputZ*inputZ);
+        if(inputLength > 0.001f) {
+            inputX /= inputLength;
+            inputZ /= inputLength;
         }
+
+        inputX *= moveSpeed;
+        inputZ *= moveSpeed;
+
+        final float DRAG_MOVE = 0.1f;
+        final float DRAG_IDLE = 12.0f;
+        boolean notMoving = sum.x == 0 && sum.z == 0;
+
+        float drag = DRAG_MOVE;
+
+        float dot = speedX * inputX + speedZ * inputZ;
+
+        if (notMoving || dot < 0f) {
+            drag = DRAG_IDLE;
+        }
+
+        speedX -= speedX * drag * deltaTime;
+        speedZ -= speedZ * drag * deltaTime;
+
+        speedX += inputX * deltaTime;
+        speedZ += inputZ * deltaTime;
+
+        float maxSpeed = 5f;
+        float combinedSpeed = (float)Math.sqrt(speedX*speedX + speedZ*speedZ);
+        if(combinedSpeed > maxSpeed) {
+            speedX = speedX / combinedSpeed * maxSpeed;
+            speedZ = speedZ / combinedSpeed * maxSpeed;
+        }
+
+        cameraCoords.x += speedX * deltaTime;
+        cameraCoords.z += speedZ * deltaTime;
     }
+
+
 
     private void spawnCubeRandomlyAtDistance(float radius) {
         float x = (float)(Math.random() * 2 * radius - radius);
@@ -269,7 +319,7 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
         gun.draw(g, this);
 
 
-        if(grapplingEquiped) {
+        if(grapplingEquipped) {
             grapplingHead.drawEdges(g, this);
 
             Pair<Float>[] projectedDotsForGun = gun.getProjectedDots(this);
@@ -284,7 +334,7 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
 
 
         }
-        if(heldBullet != null && (!grapplingEquiped || grapplingHead.shot))
+        if(heldBullet != null && (!grapplingEquipped || grapplingHead.shot))
             heldBullet.drawEdges(g, this);
 
         for (BulletHead bullet : bullets){
@@ -361,19 +411,7 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
 
     public static void main(String[] args) {
         Frame frame = new Frame("Simple Moving Rectangle");
-        Cube[] arr = new Cube[]{
-                new Cube(0.5f,0.5f, 3.5f,1f),
-                new Cube(0.5f,1.5f, 5.5f,1f),
-                new Cube(0.5f,2.5f, 6.5f,1f),
-                new Cube(0.5f,3.5f, 9.5f,1f),
-                new Cube(0.5f,3.5f, 12.5f,1f),
-                new Cube(0.5f,3.5f, 15.5f,1f),
-                new Cube(0.5f,4.5f, 18.5f,1f),
-                new Cube(0.5f,4.5f, 23.5f,1f),
-                new Cube(0.5f,4.5f, 30.5f,1f),
-        };
-
-        SimpleMove canvas = new SimpleMove(arr);
+        SimpleMove canvas = new SimpleMove();
         frame.add(canvas);
         frame.pack();
         frame.setVisible(true);
@@ -402,26 +440,26 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
     }
 
     private Triple moveForward() {
-        float dx = moveSpeed * (float) Math.sin(cameraRotation.y) * deltaTime;
-        float dz = moveSpeed * (float) Math.cos(cameraRotation.y) * deltaTime;
+        float dx = moveSpeed * (float) Math.sin(cameraRotation.y);
+        float dz = moveSpeed * (float) Math.cos(cameraRotation.y);
         return new Triple(dx,0f, dz);
     }
 
     private Triple moveBackward() {
-        float dx = -moveSpeed * deltaTime * (float) Math.sin(cameraRotation.y);
-        float dz = -moveSpeed * deltaTime * (float) Math.cos(cameraRotation.y);
+        float dx = -moveSpeed * (float) Math.sin(cameraRotation.y);
+        float dz = -moveSpeed * (float) Math.cos(cameraRotation.y);
         return new Triple(dx,0f, dz);
     }
 
     private Triple moveRight() {
-        float dx = moveSpeed * deltaTime * (float) Math.cos(cameraRotation.y);
-        float dz = moveSpeed * deltaTime * (float) -Math.sin(cameraRotation.y);
+        float dx = moveSpeed * (float) Math.cos(cameraRotation.y);
+        float dz = moveSpeed * (float) -Math.sin(cameraRotation.y);
         return new Triple(dx,0f, dz);
     }
 
     private Triple moveLeft() {
-        float dx = -moveSpeed * deltaTime * (float)Math.cos(cameraRotation.y);
-        float dz = moveSpeed * deltaTime * (float)Math.sin(cameraRotation.y);
+        float dx = -moveSpeed * (float)Math.cos(cameraRotation.y);
+        float dz = moveSpeed * (float)Math.sin(cameraRotation.y);
         return new Triple(dx,0f, dz);
     }
 
@@ -432,8 +470,8 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
 
     public void swingAround(Triple anchor) {
         Triple toAnchor = anchor.sub(cameraCoords).normalize();
-        Triple tangent = new Triple(-toAnchor.z, 0f, toAnchor.x).normalize();
-        cameraCoords = cameraCoords.add(tangent.scale(moveSpeed * deltaTime * 2));
+        Triple tangent = toAnchor.normalize();
+        cameraCoords = cameraCoords.add(tangent.scale(moveSpeed*2 * deltaTime));
     }
 
 
@@ -453,7 +491,7 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
     public void mousePressed(MouseEvent e) {
         if(e.getButton() == MouseEvent.BUTTON1) {
             Ray ray = new Ray(new Triple(cameraCoords), new Pair<>(cameraRotation), 5f);
-            if(grapplingEquiped && !grapplingHead.shot){
+            if(grapplingEquipped && !grapplingHead.shot){
                 prepareShootableForFlying(ray.direction, grapplingHead);
             }
             else {
@@ -465,7 +503,7 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
             floor.add (new Triple(cameraCoords.x + normalization.x,cameraCoords.y + normalization.y, cameraCoords.z + normalization.z));
         }
         if(e.getButton() == MouseEvent.BUTTON3) {
-            grapplingEquiped = !grapplingEquiped;
+            grapplingEquipped = !grapplingEquipped;
             swinging = false;
             grapplingHead.shot = false;
         }
