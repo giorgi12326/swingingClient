@@ -150,7 +150,7 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
 
                 byte[] data = buffer.array();
 
-                DatagramPacket packet = new DatagramPacket(data, data.length, InetAddress.getLocalHost(), 5555);
+                DatagramPacket packet = new DatagramPacket(data, data.length, InetAddress.getByName("MYIP"), 1234);
                 socket.send(packet);
 
                 long now = System.nanoTime();
