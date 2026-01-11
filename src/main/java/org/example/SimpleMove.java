@@ -9,22 +9,20 @@ import java.awt.event.*;
 import java.awt.geom.Line2D;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferStrategy;
+import java.io.IOException;
+import java.net.*;
+import java.nio.ByteBuffer;
 import java.util.*;
+import java.util.concurrent.CopyOnWriteArrayList;
 
-public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseListener , MouseMotionListener {
-
+public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseListener, MouseMotionListener {
     public static final float SCREEN_WIDTH = 1280f;
     public static final float SCREEN_HEIGHT = 720f;
     public static final float moveSpeed = 10f;
-    public static  boolean deathCubeSpawnMode = false;
     public static boolean hit = false;
-    public final Set<Integer> keysDown = new HashSet<>();
     public static float deltaTime = 1f;
     public static float FOV = 1;
     long lastTime = System.nanoTime();
-
-    long bulletShotLastTime = System.currentTimeMillis();
-    long deathCubeLastSpawnTime = System.currentTimeMillis(); // class-level variable
 
     public static boolean swinging = false;
     public static boolean grapplingEquipped = false;
@@ -32,23 +30,27 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
     public static Triple cameraCoords = new Triple(0f,0f,0f);
     public static Pair<Float> cameraRotation = new Pair<>(0f,0f);
 
+    boolean[] keysPressed = new boolean[256];
+    boolean[] buttonsPressed = new boolean[256];
+
+    public final Set<Integer> keysDown = new HashSet<>();
+
+    int[] trackedKeys = {KeyEvent.VK_W, KeyEvent.VK_A, KeyEvent.VK_S, KeyEvent.VK_D, KeyEvent.VK_SPACE};
+    int[] trackedButtons = {MouseEvent.BUTTON1, MouseEvent.BUTTON3};
+
     List<Cube> cubes;
     List<DeathCube> deathCubes = new ArrayList<>();
     List<Triple> floor = new ArrayList<>();
-    List<BulletHead> bullets = new ArrayList<>();
+    List<BulletHead> bulletsPool = new ArrayList<>();
     BulletHead heldBullet = new BulletHead();
-
-    public static final float GRAVITY = 10f;
-    public static float speedX = 0f;
-    public static float speedY = 0f;
-    public static float speedZ = 0f;
-
-    private boolean inAir;
-    private Triple sum;
+    boolean bulletHeld;
 
     Gun gun = new Gun(0,0,0);
     GrapplingHead grapplingHead = new GrapplingHead(0,0f,0);
     private Triple anchor;
+
+    DatagramSocket socket = null;
+    private Triple tempPosition = new Triple(0f,0f,0f);
 
     public SimpleMove() {
         this.cubes = new ArrayList<>();
@@ -62,10 +64,14 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
         cubes.add(new Cube(0.5f,4.5f, 23.5f,1f));
         cubes.add(new Cube(0.5f,4.5f, 30.5f,1f));
 
-        setSize((int)SCREEN_WIDTH, (int)SCREEN_HEIGHT);
         addKeyListener(this);
         addMouseMotionListener(this);
         addMouseListener(this);
+
+        setSize((int)SCREEN_WIDTH, (int)SCREEN_HEIGHT);
+        for (int i = 0; i < 50; i++) {
+            bulletsPool.add(new BulletHead());
+        }
 
         for (int i = -10; i < 10; i++) {
             for (int j = -10; j < 10; j++) {
@@ -75,224 +81,107 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
     }
 
     public void start() {
-        new Thread(this).start();
+        try {
+            socket = new DatagramSocket(5554);
+        } catch (SocketException e) {
+            throw new RuntimeException(e);
+        }
+
+        new Thread(this).start();// just use run?
+
+        new Thread(() -> {
+            try {
+                while (true) {
+                    byte[] buffer = new byte[2048];
+                    DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+                    socket.receive(packet);
+
+                    ByteBuffer bb = ByteBuffer.wrap(packet.getData(), 0, packet.getLength());
+                    float x = bb.getFloat();
+                    float y = bb.getFloat();
+                    float z = bb.getFloat();
+                    int bulletSize = bb.getInt();
+
+                    for (BulletHead head : bulletsPool) head.x = 0;
+
+                    for (int i = 0; i < bulletSize; i++) {
+                        BulletHead bulletHead = bulletsPool.get(i);
+                        bulletHead.x = bb.getFloat();
+                        bulletHead.y = bb.getFloat();
+                        bulletHead.z = bb.getFloat();
+                        bulletHead.rotation.x = bb.getFloat();
+                        bulletHead.rotation.y = bb.getFloat();
+                        bulletHead.shot = bb.get() == 1;
+                        bulletHead.flying = bb.get() == 1;
+                    }
+
+                    bulletHeld = (bb.get() == 1);
+                    grapplingEquipped = (bb.get() == 1);
+
+                    tempPosition.x = x;
+                    tempPosition.y = y;
+                    tempPosition.z = z;
+
+                }
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }).start();
+
     }
 
     @Override
-    public void run() {
-        createBufferStrategy(2);   // double buffering
-        BufferStrategy bs = getBufferStrategy();
+    public void run(){
+        try {
+            createBufferStrategy(2);   // double buffering
+            BufferStrategy bs = getBufferStrategy();
 
-        while (true) {
-            long now = System.nanoTime();
-            deltaTime = (now - lastTime) / 1_000_000_000f;
-            lastTime = now;
+            while (true) {
+                ByteBuffer buffer = ByteBuffer.allocate(15);
+                for (int trackedKey : trackedKeys) {
+                    buffer.put((byte) (keysPressed[trackedKey] ? 1 : 0));
+                }
+                for (int trackedKey : trackedButtons) {
+                    buffer.put((byte) (buttonsPressed[trackedKey] ? 1 : 0));
+                }
 
-            input();
-            update();
-            render(bs);
+                buffer.putFloat(cameraRotation.x);
+                buffer.putFloat(cameraRotation.y);
 
-            try {
-                Thread.sleep(5);   // ~60 FPS
-            } catch (InterruptedException e) {
-                e.printStackTrace();
+                byte[] data = buffer.array();
+
+                DatagramPacket packet = new DatagramPacket(data, data.length, InetAddress.getLocalHost(), 5555);
+                socket.send(packet);
+
+                long now = System.nanoTime();
+                deltaTime = (now - lastTime) / 1_000_000_000f;
+                lastTime = now;
+
+                update();
+                render(bs);
+
+                try {
+                    Thread.sleep(5);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
             }
         }
-    }
-
-    private void input() {
-        sum = new Triple(0f,0f,0f);
-
-        if (keysDown.contains(KeyEvent.VK_W))
-            sum = sum.add(moveForward());
-        if (keysDown.contains(KeyEvent.VK_S))
-            sum = sum.add(moveBackward());
-        if (keysDown.contains(KeyEvent.VK_D))
-            sum = sum.add(moveRight());
-        if (keysDown.contains(KeyEvent.VK_A))
-            sum = sum.add(moveLeft());
-        if (keysDown.contains(KeyEvent.VK_G))
-            deathCubeSpawnMode = true;
-        if (keysDown.contains(KeyEvent.VK_H))
-            deathCubeSpawnMode = false;
-
-        if(keysDown.contains(KeyEvent.VK_SPACE) && !inAir) {
-            speedY = 6f;
-            inAir = true;
-        }
-
-        if(keysDown.contains(KeyEvent.VK_SHIFT))
-            cameraCoords.y -= moveSpeed * deltaTime;
+        catch (Exception e){}
     }
 
     private void update() {
-        for(Cube cube : cubes) {
-            cube.update();
-        }
-        for(DeathCube deathCube : deathCubes) {
-            deathCube.update();
-        }
-        if(!swinging)
-            speedY -= GRAVITY * deltaTime;
-        float dy = speedY * deltaTime;
-        sum.y += dy;
-        cameraCoords.y += sum.y;
-
-        for (Cube cube : cubes) {
-            if (cube.isPointInCube(cameraCoords)) {
-                if (sum.y > 0) {
-                    cameraCoords.y = cube.y - cube.size / 2 - 0.0001f;
-                } else {
-                    cameraCoords.y = cube.y + cube.size / 2 + 0.0001f;
-                    speedY = 0f;
-                    inAir = false;
-                }
-                speedY = 0f;
-
-            }
-        }
-        if (cameraCoords.y <= 0f) {
-            cameraCoords.y = 0.0001f;
-            speedY = 0f;
-            inAir = false;
-        }
-
-        moveCharacter();
-
-        for (Cube cube : cubes) {
-            if (cube.isPointInCube(cameraCoords)) {
-                if (speedZ > 0)
-                    cameraCoords.z = cube.z - cube.size / 2 - 0.0001f;
-                else if (speedZ < 0)
-                    cameraCoords.z = cube.z + cube.size / 2 + 0.0001f;
-
-                speedZ = 0f;
-            }
-        }
-
-        if(swinging) {
-            swingAround(anchor);
-        }
-
-        grapplingHead.update();
-
-        if(!grapplingHead.shot){
-            grapplingHead.x = cameraCoords.x + 0.1f;
-            grapplingHead.y = cameraCoords.y;
-            grapplingHead.z = cameraCoords.z + 1f;
-        }
-
-        for(BulletHead bulletHead: bullets) {
-            bulletHead.update();
-        }
-
-        if(heldBullet != null){
-            heldBullet.x = cameraCoords.x;
-            heldBullet.y = cameraCoords.y- 0.15f;
-            heldBullet.z = cameraCoords.z + 0.8f;
-
-        }
-        else if(System.currentTimeMillis() - bulletShotLastTime > 200){
-            heldBullet = new BulletHead();
-            heldBullet.x = 1000f;
-        }
+        cameraCoords.x = tempPosition.x;
+        cameraCoords.y = tempPosition.y;
+        cameraCoords.z = tempPosition.z;
 
         gun.x = cameraCoords.x + 0.1f;
         gun.y = cameraCoords.y;
         gun.z = cameraCoords.z + 0.3f;
 
-        if(grapplingHead.shot)
-            for(Cube cube : cubes) {
-                if(cube.isPointInCube(grapplingHead.getNodes()[16])) {
-                    swinging = true;
-                    grapplingHead.flying = false;
-                    anchor = new Triple(cube.x + cube.size / 2f, cube.y + cube.size / 2f, cube.z + cube.size / 2f);
-                }
-            }
-
-        for (BulletHead bullet : bullets) {
-            for (int j = deathCubes.size()-1; j >= 0; j--) {
-                DeathCube deathCube = deathCubes.get(j);
-                if (deathCube.isPointInCube(bullet.getNodes()[8]))
-                    deathCubes.remove(j);
-            }
-        }
-        boolean localHit = false;
-        for(DeathCube deathCube : deathCubes) {
-            if(deathCube.isPointInCube(cameraCoords))
-                localHit = true;
-        }
-
-        if (deathCubeSpawnMode && System.currentTimeMillis() - deathCubeLastSpawnTime > 1000) {
-            deathCubeLastSpawnTime = System.currentTimeMillis();
-            spawnCubeRandomlyAtDistance(64f);
-        }
-
-        for (int i = deathCubes.size() - 1; i >= 0; i--) {
-            DeathCube deathCube = deathCubes.get(i);
-            if(deathCube.markedAsDeleted || deathCube.y < 0)
-                deathCubes.remove(i);
-        }
-
-        for (int i = bullets.size() - 1; i >= 0; i--) {
-            BulletHead bullet = bullets.get(i);
-            if(bullet.markAsDeleted)
-                bullets.remove(i);
-        }
-
-        hit = localHit;
-
-    }
-
-    private void moveCharacter() {
-        float inputX = sum.x;
-        float inputZ = sum.z;
-
-        float inputLength = (float)Math.sqrt(inputX*inputX + inputZ*inputZ);
-        if(inputLength > 0.001f) {
-            inputX /= inputLength;
-            inputZ /= inputLength;
-        }
-
-        inputX *= moveSpeed;
-        inputZ *= moveSpeed;
-
-        final float DRAG_MOVE = 0.1f;
-        final float DRAG_IDLE = 12.0f;
-        boolean notMoving = sum.x == 0 && sum.z == 0;
-
-        float drag = DRAG_MOVE;
-
-        float dot = speedX * inputX + speedZ * inputZ;
-
-        if (notMoving || dot < 0f) {
-            drag = DRAG_IDLE;
-        }
-
-        speedX -= speedX * drag * deltaTime;
-        speedZ -= speedZ * drag * deltaTime;
-
-        speedX += inputX * deltaTime;
-        speedZ += inputZ * deltaTime;
-
-        float maxSpeed = 5f;
-        float combinedSpeed = (float)Math.sqrt(speedX*speedX + speedZ*speedZ);
-        if(combinedSpeed > maxSpeed) {
-            speedX = speedX / combinedSpeed * maxSpeed;
-            speedZ = speedZ / combinedSpeed * maxSpeed;
-        }
-
-        cameraCoords.x += speedX * deltaTime;
-        cameraCoords.z += speedZ * deltaTime;
-    }
-
-
-
-    private void spawnCubeRandomlyAtDistance(float radius) {
-        float x = (float)(Math.random() * 2 * radius - radius);
-        float z = (float)(Math.random() * 2 * radius - radius);
-        float y = 10f;
-        deathCubes.add(new DeathCube(cameraCoords.x + x, cameraCoords.y + y, cameraCoords.z + z, cameraCoords, 1f));
+        heldBullet.x = cameraCoords.x;
+        heldBullet.y = cameraCoords.y- 0.15f;
+        heldBullet.z = cameraCoords.z + 0.8f;
 
     }
 
@@ -332,13 +221,13 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
                         hookProjected[GrapplingHead.edges.get(16).y].x,
                         SCREEN_HEIGHT - hookProjected[GrapplingHead.edges.get(16).y].y));// - because panel y starts from top
 
-
         }
-        if(heldBullet != null && (!grapplingEquipped || grapplingHead.shot))
+        if(bulletHeld)
             heldBullet.drawEdges(g, this);
 
-        for (BulletHead bullet : bullets){
-            bullet.drawEdges(g, this);
+        for (BulletHead bullet : bulletsPool){
+            if(bullet.x != 0)
+                bullet.drawEdges(g, this);
         }
 
         g.drawString("FPS: " + (int)(1/deltaTime), 30, 30);
@@ -409,7 +298,11 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
         return new Pair<>(SCREEN_WIDTH * d/2f + SCREEN_WIDTH/2f, ((SCREEN_HEIGHT*t)/2f) + (SCREEN_HEIGHT/2f));
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
+        createWindow();
+    }
+
+    private static void createWindow() {
         Frame frame = new Frame("Simple Moving Rectangle");
         SimpleMove canvas = new SimpleMove();
         frame.add(canvas);
@@ -417,26 +310,13 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
         frame.setVisible(true);
         frame.setResizable(false);
 
-        frame.addWindowListener(new java.awt.event.WindowAdapter() {
-            public void windowClosing(java.awt.event.WindowEvent e) {
+        frame.addWindowListener(new WindowAdapter() {
+            public void windowClosing(WindowEvent e) {
                 System.exit(0);
             }
         });
 
         canvas.start();
-    }
-
-    @Override
-    public void keyPressed(KeyEvent e) {
-        if(e.getKeyCode() == KeyEvent.VK_9)
-            FOV*=1.1f;
-        if(e.getKeyCode() == KeyEvent.VK_0)
-            FOV*=0.9f;
-        if(e.getKeyCode() == KeyEvent.VK_Y)
-            swinging = true;
-        if(e.getKeyCode() == KeyEvent.VK_T)
-            swinging = false;
-        keysDown.add(e.getKeyCode());
     }
 
     private Triple moveForward() {
@@ -464,16 +344,24 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
     }
 
     @Override
+    public void keyPressed(KeyEvent e) {
+        keysPressed[e.getKeyCode()] = true;
+    }
+
+    @Override
     public void keyReleased(KeyEvent e) {
-        keysDown.remove(e.getKeyCode());
+        keysPressed[e.getKeyCode()] = false;
     }
 
-    public void swingAround(Triple anchor) {
-        Triple toAnchor = anchor.sub(cameraCoords).normalize();
-        Triple tangent = toAnchor.normalize();
-        cameraCoords = cameraCoords.add(tangent.scale(moveSpeed*2 * deltaTime));
+    @Override
+    public void keyTyped(KeyEvent e) {
+
     }
 
+    @Override
+    public void mouseDragged(MouseEvent e) {
+
+    }
 
     @Override
     public void mouseMoved(MouseEvent e) {
@@ -488,59 +376,18 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
     }
 
     @Override
-    public void mousePressed(MouseEvent e) {
-        if(e.getButton() == MouseEvent.BUTTON1) {
-            Ray ray = new Ray(new Triple(cameraCoords), new Pair<>(cameraRotation), 5f);
-            if(grapplingEquipped && !grapplingHead.shot){
-                prepareShootableForFlying(ray.direction, grapplingHead);
-            }
-            else {
-                prepareBulletForFlying(ray.direction,heldBullet);
-            }
-        }
-        if(e.getButton() == MouseEvent.BUTTON2) {
-            Triple normalization = rotationToDirection(cameraRotation);
-            floor.add (new Triple(cameraCoords.x + normalization.x,cameraCoords.y + normalization.y, cameraCoords.z + normalization.z));
-        }
-        if(e.getButton() == MouseEvent.BUTTON3) {
-            grapplingEquipped = !grapplingEquipped;
-            swinging = false;
-            grapplingHead.shot = false;
-        }
-
-    }
-
-    private void prepareBulletForFlying(Pair<Float> direction, BulletHead bulletHead) {
-        if(bulletHead == null)
-            return;
-
-        prepareShootableForFlying(direction, bulletHead);
-
-        bullets.add(heldBullet);
-        heldBullet = null;
-        bulletShotLastTime = System.currentTimeMillis();
-
-    }
-
-    private void prepareShootableForFlying(Pair<Float> direction, Shootable shootable) {
-        shootable.direction = rotationToDirection(direction);
-        shootable.rotation = new Pair<>(cameraRotation.x, cameraRotation.y);
-        Triple newPosition = new Triple(shootable.x, shootable.y, shootable.z).rotateXY(cameraCoords, shootable.rotation);
-        shootable.x = newPosition.x;
-        shootable.y = newPosition.y;
-        shootable.z = newPosition.z;
-        shootable.shot = true;
-        shootable.flying = true;
-    }
-
-    @Override
     public void mouseClicked(MouseEvent e) {
 
     }
 
     @Override
-    public void mouseReleased(MouseEvent e) {
+    public void mousePressed(MouseEvent e) {
+        buttonsPressed[e.getButton()] = true;
+    }
 
+    @Override
+    public void mouseReleased(MouseEvent e) {
+        buttonsPressed[e.getButton()] = false;
     }
 
     @Override
@@ -550,16 +397,6 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
 
     @Override
     public void mouseExited(MouseEvent e) {
-
-    }
-
-    @Override
-    public void keyTyped(KeyEvent e) {
-
-    }
-
-    @Override
-    public void mouseDragged(MouseEvent e) {
 
     }
 }
