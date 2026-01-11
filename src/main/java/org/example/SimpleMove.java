@@ -82,7 +82,7 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
 
     public void start() {
         try {
-            socket = new DatagramSocket(5554);
+            socket = new DatagramSocket(1234);
         } catch (SocketException e) {
             throw new RuntimeException(e);
         }
@@ -167,7 +167,9 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
                 }
             }
         }
-        catch (Exception e){}
+        catch (Exception e){
+            throw new RuntimeException(e);
+        }
     }
 
     private void update() {
@@ -184,6 +186,124 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
         heldBullet.z = cameraCoords.z + 0.8f;
 
     }
+//    private void update() {
+//        for(Cube cube : cubes) {
+//            cube.update();
+//        }
+//        for(DeathCube deathCube : deathCubes) {
+//            deathCube.update();
+//        }
+//        if(!swinging)
+//            speedY -= GRAVITY * deltaTime;
+//        float dy = speedY * deltaTime;
+//        sum.y += dy;
+//        cameraCoords.y += sum.y;
+//
+//        for (Cube cube : cubes) {
+//            if (cube.isPointInCube(cameraCoords)) {
+//                if (sum.y > 0) {
+//                    cameraCoords.y = cube.y - cube.size / 2 - 0.0001f;
+//                } else {
+//                    cameraCoords.y = cube.y + cube.size / 2 + 0.0001f;
+//                    speedY = 0f;
+//                    inAir = false;
+//                }
+//                speedY = 0f;
+//
+//            }
+//        }
+//        if (cameraCoords.y <= 0f) {
+//            cameraCoords.y = 0.0001f;
+//            speedY = 0f;
+//            inAir = false;
+//        }
+//
+//        moveCharacter();
+//
+//        for (Cube cube : cubes) {
+//            if (cube.isPointInCube(cameraCoords)) {
+//                if (speedZ > 0)
+//                    cameraCoords.z = cube.z - cube.size / 2 - 0.0001f;
+//                else if (speedZ < 0)
+//                    cameraCoords.z = cube.z + cube.size / 2 + 0.0001f;
+//
+//                speedZ = 0f;
+//            }
+//        }
+//
+//        if(swinging) {
+//            swingAround(anchor);
+//        }
+//
+//        grapplingHead.update();
+//
+//        if(!grapplingHead.shot){
+//            grapplingHead.x = cameraCoords.x + 0.1f;
+//            grapplingHead.y = cameraCoords.y;
+//            grapplingHead.z = cameraCoords.z + 1f;
+//        }
+//
+//        for(BulletHead bulletHead: bullets) {
+//            bulletHead.update();
+//        }
+//
+//        if(heldBullet != null){
+//            heldBullet.x = cameraCoords.x;
+//            heldBullet.y = cameraCoords.y- 0.15f;
+//            heldBullet.z = cameraCoords.z + 0.8f;
+//
+//        }
+//        else if(System.currentTimeMillis() - bulletShotLastTime > 200){
+//            heldBullet = new BulletHead();
+//            heldBullet.x = 1000f;
+//        }
+//
+//        gun.x = cameraCoords.x + 0.1f;
+//        gun.y = cameraCoords.y;
+//        gun.z = cameraCoords.z + 0.3f;
+//
+//        if(grapplingHead.shot)
+//            for(Cube cube : cubes) {
+//                if(cube.isPointInCube(grapplingHead.getNodes()[16])) {
+//                    swinging = true;
+//                    grapplingHead.flying = false;
+//                    anchor = new Triple(cube.x + cube.size / 2f, cube.y + cube.size / 2f, cube.z + cube.size / 2f);
+//                }
+//            }
+//
+//        for (BulletHead bullet : bullets) {
+//            for (int j = deathCubes.size()-1; j >= 0; j--) {
+//                DeathCube deathCube = deathCubes.get(j);
+//                if (deathCube.isPointInCube(bullet.getNodes()[8]))
+//                    deathCubes.remove(j);
+//            }
+//        }
+//        boolean localHit = false;
+//        for(DeathCube deathCube : deathCubes) {
+//            if(deathCube.isPointInCube(cameraCoords))
+//                localHit = true;
+//        }
+//
+//        if (deathCubeSpawnMode && System.currentTimeMillis() - deathCubeLastSpawnTime > 1000) {
+//            deathCubeLastSpawnTime = System.currentTimeMillis();
+//            spawnCubeRandomlyAtDistance(64f);
+//        }
+//
+//        for (int i = deathCubes.size() - 1; i >= 0; i--) {
+//            DeathCube deathCube = deathCubes.get(i);
+//            if(deathCube.markedAsDeleted || deathCube.y < 0)
+//                deathCubes.remove(i);
+//        }
+//
+//        for (int i = bullets.size() - 1; i >= 0; i--) {
+//            BulletHead bullet = bullets.get(i);
+//            if(bullet.markAsDeleted)
+//                bullets.remove(i);
+//        }
+//
+//        hit = localHit;
+//
+//    }
 
     private void render(BufferStrategy bs) {
         Graphics gj = bs.getDrawGraphics();
