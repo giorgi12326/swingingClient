@@ -23,6 +23,7 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
     public static float deltaTime = 1f;
     public static float FOV = 1;
     long lastTime = System.nanoTime();
+    long lastPacketReceived = 0;
 
     public static boolean swinging = false;
     public static boolean grapplingEquipped = false;
@@ -44,6 +45,7 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
     List<BulletHead> bulletsPool = new ArrayList<>();
     BulletHead heldBullet = new BulletHead();
     boolean bulletHeld;
+    List<Client> clients = new ArrayList<>();
 
     Gun gun = new Gun(0,0,0);
     GrapplingHead grapplingHead = new GrapplingHead(0,0f,0);
@@ -90,13 +92,23 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
         new Thread(this).start();// just use run?
 
         new Thread(() -> {
+
             try {
+                byte[] buffer = new byte[2048];
+                DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+                ByteBuffer bb = ByteBuffer.wrap(packet.getData(), 0, packet.getLength());
+
                 while (true) {
-                    byte[] buffer = new byte[2048];
-                    DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+
                     socket.receive(packet);
 
-                    ByteBuffer bb = ByteBuffer.wrap(packet.getData(), 0, packet.getLength());
+                    bb.position(0);
+                    bb.limit(packet.getLength());
+
+                    System.out.println("packet took " + (System.currentTimeMillis() - lastPacketReceived) + "ms");
+                    lastPacketReceived = System.currentTimeMillis();
+
+
                     float x = bb.getFloat();
                     float y = bb.getFloat();
                     float z = bb.getFloat();
@@ -117,6 +129,23 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
 
                     bulletHeld = (bb.get() == 1);
                     grapplingEquipped = (bb.get() == 1);
+
+                    int clientSize = bb.getInt();
+                    while(clientSize !=  clients.size()) {
+                        if(clientSize > clients.size())
+                            clients.add(new Client());
+                        if(clientSize > clients.size())
+                            clients.remove(clients.size()-1);
+                    }
+                    for (int i = 0; i < clientSize; i++) {
+                        Client client = clients.get(i);
+                        client.cameraCoords.x =  bb.getFloat();
+                        client.cameraCoords.y =  bb.getFloat();
+                        client.cameraCoords.z =  bb.getFloat();
+                        client.cameraRotation.x =  bb.getFloat();
+                        client.cameraRotation.y =  bb.getFloat();
+                        client.grapplingEquipped =  bb.get()==1;
+                    }
 
                     tempPosition.x = x;
                     tempPosition.y = y;
@@ -150,7 +179,7 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
 
                 byte[] data = buffer.array();
 
-                DatagramPacket packet = new DatagramPacket(data, data.length, InetAddress.getByName("MYIP"), 1234);
+                DatagramPacket packet = new DatagramPacket(data, data.length, InetAddress.getByName("82.211.163.67"), 1234);
                 socket.send(packet);
 
                 long now = System.nanoTime();
@@ -186,124 +215,6 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
         heldBullet.z = cameraCoords.z + 0.8f;
 
     }
-//    private void update() {
-//        for(Cube cube : cubes) {
-//            cube.update();
-//        }
-//        for(DeathCube deathCube : deathCubes) {
-//            deathCube.update();
-//        }
-//        if(!swinging)
-//            speedY -= GRAVITY * deltaTime;
-//        float dy = speedY * deltaTime;
-//        sum.y += dy;
-//        cameraCoords.y += sum.y;
-//
-//        for (Cube cube : cubes) {
-//            if (cube.isPointInCube(cameraCoords)) {
-//                if (sum.y > 0) {
-//                    cameraCoords.y = cube.y - cube.size / 2 - 0.0001f;
-//                } else {
-//                    cameraCoords.y = cube.y + cube.size / 2 + 0.0001f;
-//                    speedY = 0f;
-//                    inAir = false;
-//                }
-//                speedY = 0f;
-//
-//            }
-//        }
-//        if (cameraCoords.y <= 0f) {
-//            cameraCoords.y = 0.0001f;
-//            speedY = 0f;
-//            inAir = false;
-//        }
-//
-//        moveCharacter();
-//
-//        for (Cube cube : cubes) {
-//            if (cube.isPointInCube(cameraCoords)) {
-//                if (speedZ > 0)
-//                    cameraCoords.z = cube.z - cube.size / 2 - 0.0001f;
-//                else if (speedZ < 0)
-//                    cameraCoords.z = cube.z + cube.size / 2 + 0.0001f;
-//
-//                speedZ = 0f;
-//            }
-//        }
-//
-//        if(swinging) {
-//            swingAround(anchor);
-//        }
-//
-//        grapplingHead.update();
-//
-//        if(!grapplingHead.shot){
-//            grapplingHead.x = cameraCoords.x + 0.1f;
-//            grapplingHead.y = cameraCoords.y;
-//            grapplingHead.z = cameraCoords.z + 1f;
-//        }
-//
-//        for(BulletHead bulletHead: bullets) {
-//            bulletHead.update();
-//        }
-//
-//        if(heldBullet != null){
-//            heldBullet.x = cameraCoords.x;
-//            heldBullet.y = cameraCoords.y- 0.15f;
-//            heldBullet.z = cameraCoords.z + 0.8f;
-//
-//        }
-//        else if(System.currentTimeMillis() - bulletShotLastTime > 200){
-//            heldBullet = new BulletHead();
-//            heldBullet.x = 1000f;
-//        }
-//
-//        gun.x = cameraCoords.x + 0.1f;
-//        gun.y = cameraCoords.y;
-//        gun.z = cameraCoords.z + 0.3f;
-//
-//        if(grapplingHead.shot)
-//            for(Cube cube : cubes) {
-//                if(cube.isPointInCube(grapplingHead.getNodes()[16])) {
-//                    swinging = true;
-//                    grapplingHead.flying = false;
-//                    anchor = new Triple(cube.x + cube.size / 2f, cube.y + cube.size / 2f, cube.z + cube.size / 2f);
-//                }
-//            }
-//
-//        for (BulletHead bullet : bullets) {
-//            for (int j = deathCubes.size()-1; j >= 0; j--) {
-//                DeathCube deathCube = deathCubes.get(j);
-//                if (deathCube.isPointInCube(bullet.getNodes()[8]))
-//                    deathCubes.remove(j);
-//            }
-//        }
-//        boolean localHit = false;
-//        for(DeathCube deathCube : deathCubes) {
-//            if(deathCube.isPointInCube(cameraCoords))
-//                localHit = true;
-//        }
-//
-//        if (deathCubeSpawnMode && System.currentTimeMillis() - deathCubeLastSpawnTime > 1000) {
-//            deathCubeLastSpawnTime = System.currentTimeMillis();
-//            spawnCubeRandomlyAtDistance(64f);
-//        }
-//
-//        for (int i = deathCubes.size() - 1; i >= 0; i--) {
-//            DeathCube deathCube = deathCubes.get(i);
-//            if(deathCube.markedAsDeleted || deathCube.y < 0)
-//                deathCubes.remove(i);
-//        }
-//
-//        for (int i = bullets.size() - 1; i >= 0; i--) {
-//            BulletHead bullet = bullets.get(i);
-//            if(bullet.markAsDeleted)
-//                bullets.remove(i);
-//        }
-//
-//        hit = localHit;
-//
-//    }
 
     private void render(BufferStrategy bs) {
         Graphics gj = bs.getDrawGraphics();
@@ -314,6 +225,14 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
         drawCrosshair(g);
 
         g.setColor(Color.BLUE);
+
+        for(Client client : clients) {
+            client.hitbox.x = client.cameraCoords.x;
+            client.hitbox.y = client.cameraCoords.y;
+            client.hitbox.z = client.cameraCoords.z;
+//            client.hitbox.update();
+            client.hitbox.draw(g, this);
+        }
 
         for(Triple point : floor)
             point.draw(g,this);

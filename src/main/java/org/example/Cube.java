@@ -59,8 +59,22 @@ public class Cube {
     }
 
     public void update() {
-//        rotateY(0.01f);
+//        rotateY(0.1f);
     }
+
+    public void rotateY(float angle){
+        float sin = (float)Math.sin(angle);
+        float cos = (float)Math.cos(angle);
+
+        for(Triple p : nodes){
+            float x = p.x;
+            float z = p.z;
+
+            p.x = x * cos - z * sin;
+            p.z = x * sin + z * cos;
+        }
+    }
+
 
     Pair<Float>[] getProjectedDotsForCube(SimpleMove simpleMove) {
         Pair<Float>[] projectedDots = (Pair<Float>[]) new Pair<?>[8];
@@ -72,12 +86,6 @@ public class Cube {
             projectedDots[count] = projected;
         }
         return projectedDots;
-    }
-
-    public boolean isPointInCube(Triple position){
-        return Math.abs(x - position.x) <= size / 2 &&
-                Math.abs(y - position.y) <= size / 2 &&
-                Math.abs(z - position.z) <= size / 2;
     }
 
     public void draw(Graphics2D g, SimpleMove simpleMove) {
