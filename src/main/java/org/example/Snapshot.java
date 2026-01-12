@@ -10,7 +10,9 @@ public class Snapshot {
     public int bulletSize;
 
     Client me = new Client();
+
     Client[] clients = new Client[4];
+    public int clientSize;
 
     final Object mutex =  new Object();
 

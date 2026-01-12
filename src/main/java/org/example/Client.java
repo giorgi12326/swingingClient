@@ -3,7 +3,6 @@ package org.example;
 import java.net.InetAddress;
 
 public class Client {
-
     Triple sum = new Triple(0f,0f,0f);
     Triple cameraCoords = new Triple(0f,0f,0f);
     Pair<Float> cameraRotation = new Pair<>(0f,0f);
