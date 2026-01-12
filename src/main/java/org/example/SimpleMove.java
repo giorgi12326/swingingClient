@@ -23,8 +23,6 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
     long lastTime = System.nanoTime();
     long lastPacketReceived = 0;
 
-
-    Deque<Snapshot> snapshotList = new ArrayDeque<>();
     static int INTERP_DELAY_MS = 30;
 
     public static boolean swinging = false;
@@ -111,46 +109,48 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
                 while (true) {
                     socket.receive(packet);
                     Snapshot snapshot = snapshots[(snapshotPointer++)%snapshots.length];
-                    bb.position(0);
-                    bb.limit(packet.getLength());
+                    synchronized (snapshot.mutex) {
+                        bb.position(0);
+                        bb.limit(packet.getLength());
 
-//                    System.out.println("packet took " + (System.currentTimeMillis() - lastPacketReceived) + "ms");
-                    lastPacketReceived = System.currentTimeMillis();
+//                        System.out.println("packet took " + (System.currentTimeMillis() - lastPacketReceived) + "ms");
+//                        lastPacketReceived = System.currentTimeMillis();
 
-                    snapshot.me.cameraCoords.x = bb.getFloat();
-                    snapshot.me.cameraCoords.y = bb.getFloat();
-                    snapshot.me.cameraCoords.z = bb.getFloat();
+                        snapshot.me.cameraCoords.x = bb.getFloat();
+                        snapshot.me.cameraCoords.y = bb.getFloat();
+                        snapshot.me.cameraCoords.z = bb.getFloat();
 
-                    snapshot.bulletSize = bb.getInt();
+                        snapshot.bulletSize = bb.getInt();
 
-                    for (BulletHead head : bulletsPool) head.x = 0;
+                        for (BulletHead head : bulletsPool) head.x = 0;
 
-                    for (int i = 0; i < snapshot.bulletSize; i++) {
-                        BulletSnapshot bulletSnapshot = snapshot.bullets[i];
-                        bulletSnapshot.x = bb.getFloat();
-                        bulletSnapshot.y = bb.getFloat();
-                        bulletSnapshot.z = bb.getFloat();
-                        bulletSnapshot.rotationX = bb.getFloat();
-                        bulletSnapshot.rotationY = bb.getFloat();
-                        bulletSnapshot.shot = bb.get() == 1;
-                        bulletSnapshot.flying = bb.get() == 1;
+                        for (int i = 0; i < snapshot.bulletSize; i++) {
+                            BulletSnapshot bulletSnapshot = snapshot.bullets[i];
+                            bulletSnapshot.x = bb.getFloat();
+                            bulletSnapshot.y = bb.getFloat();
+                            bulletSnapshot.z = bb.getFloat();
+                            bulletSnapshot.rotationX = bb.getFloat();
+                            bulletSnapshot.rotationY = bb.getFloat();
+                            bulletSnapshot.shot = bb.get() == 1;
+                            bulletSnapshot.flying = bb.get() == 1;
+                        }
+
+                        snapshot.me.bulletHeld = (bb.get() == 1);
+                        snapshot.me.grapplingEquipped = (bb.get() == 1);
+
+                        int clientSize = bb.getInt();
+
+                        for (int i = 0; i < clientSize; i++) {
+                            Client client = snapshot.clients[i];
+                            client.cameraCoords.x = bb.getFloat();
+                            client.cameraCoords.y = bb.getFloat();
+                            client.cameraCoords.z = bb.getFloat();
+                            client.cameraRotation.x = bb.getFloat();
+                            client.cameraRotation.y = bb.getFloat();
+                            client.grapplingEquipped = bb.get() == 1;
+                        }
+                        snapshot.time = bb.getLong();
                     }
-
-                    snapshot.me.bulletHeld = (bb.get() == 1);
-                    snapshot.me.grapplingEquipped = (bb.get() == 1);
-
-                    int clientSize = bb.getInt();
-
-                    for (int i = 0; i < clientSize; i++) {
-                        Client client = snapshot.clients[i];
-                        client.cameraCoords.x = bb.getFloat();
-                        client.cameraCoords.y = bb.getFloat();
-                        client.cameraCoords.z = bb.getFloat();
-                        client.cameraRotation.x = bb.getFloat();
-                        client.cameraRotation.y = bb.getFloat();
-                        client.grapplingEquipped = bb.get()==1;
-                    }
-                    snapshot.time = bb.getLong();
 
                     System.out.println("processing time " + (System.currentTimeMillis() -  lastPacketReceived));
                 }
@@ -158,6 +158,7 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
                 throw new RuntimeException(e);
             }
         }).start();
+
         run();
 
     }
@@ -168,29 +169,35 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
             createBufferStrategy(2);   // double buffering
             BufferStrategy bs = getBufferStrategy();
 
+            byte[] sendArray = new byte[15];
+            ByteBuffer sendBuffer = ByteBuffer.wrap(sendArray);
+            DatagramPacket sendPacket =
+                    new DatagramPacket(sendArray, sendArray.length,
+                            InetAddress.getLocalHost(), 1247);
+
             while (true) {
-                ByteBuffer buffer = ByteBuffer.allocate(15);
-                for (int trackedKey : trackedKeys) {
-                    buffer.put((byte) (keysPressed[trackedKey] ? 1 : 0));
-                }
-                for (int trackedKey : trackedButtons) {
-                    buffer.put((byte) (buttonsPressed[trackedKey] ? 1 : 0));
-                }
-
-                buffer.putFloat(cameraRotation.x);
-                buffer.putFloat(cameraRotation.y);
-
-                byte[] data = buffer.array();
-
-                DatagramPacket packet = new DatagramPacket(data, data.length, InetAddress.getLocalHost(), 1247);
-                socket.send(packet);
-
                 long now = System.nanoTime();
                 deltaTime = (now - lastTime) / 1_000_000_000f;
                 lastTime = now;
 
                 update();
                 render(bs);
+
+                //send
+                sendBuffer.clear();
+
+                for (int trackedKey : trackedKeys) {
+                    sendBuffer.put((byte) (keysPressed[trackedKey] ? 1 : 0));
+                }
+                for (int trackedKey : trackedButtons) {
+                    sendBuffer.put((byte) (buttonsPressed[trackedKey] ? 1 : 0));
+                }
+
+                sendBuffer.putFloat(cameraRotation.x);
+                sendBuffer.putFloat(cameraRotation.y);
+
+                sendPacket.setLength(sendBuffer.position());
+                socket.send(sendPacket);
 
                 try {
                     Thread.sleep(5);
@@ -224,22 +231,30 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
         }
 
         if (older != null && newer != null) {
-            float t = (renderTime - older.time) / (float)(newer.time - older.time);
-            cameraCoords.x = lerp(older.me.cameraCoords.x, newer.me.cameraCoords.x, t);
-            cameraCoords.y = lerp(older.me.cameraCoords.y, newer.me.cameraCoords.y, t);
-            cameraCoords.z = lerp(older.me.cameraCoords.z, newer.me.cameraCoords.z, t);
+            synchronized (older.mutex) {
+                synchronized (newer.mutex) {
 
-            for (int i = 0; i < Math.min(older.bulletSize, newer.bulletSize); i++) {
-                BulletSnapshot ob = older.bullets[i];
-                BulletSnapshot nb = newer.bullets[i];
-                bulletsPool[i].x = lerp(ob.x, nb.x, t);
-                bulletsPool[i].y = lerp(ob.y, nb.y, t);
-                bulletsPool[i].z = lerp(ob.z, nb.z, t);
-                bulletsPool[i].rotation.x = lerp(ob.rotationX, nb.rotationX, t);
-                bulletsPool[i].rotation.y = lerp(ob.rotationY, nb.rotationY, t);
-                bulletsPool[i].shot = ob.shot && nb.shot;
-                bulletsPool[i].flying = ob.flying && nb.flying;
+                    float t = (newer.time == older.time) ? 0f
+                            : (renderTime - older.time) / (float) (newer.time - older.time);
 
+                    cameraCoords.x = lerp(older.me.cameraCoords.x, newer.me.cameraCoords.x, t);
+                    cameraCoords.y = lerp(older.me.cameraCoords.y, newer.me.cameraCoords.y, t);
+                    cameraCoords.z = lerp(older.me.cameraCoords.z, newer.me.cameraCoords.z, t);
+                    bulletHeld = older.me.bulletHeld && newer.me.bulletHeld;
+
+                    for (int i = 0; i < Math.min(older.bulletSize, newer.bulletSize); i++) {
+                        BulletSnapshot ob = older.bullets[i];
+                        BulletSnapshot nb = newer.bullets[i];
+                        bulletsPool[i].x = lerp(ob.x, nb.x, t);
+                        bulletsPool[i].y = lerp(ob.y, nb.y, t);
+                        bulletsPool[i].z = lerp(ob.z, nb.z, t);
+                        bulletsPool[i].rotation.x = lerp(ob.rotationX, nb.rotationX, t);
+                        bulletsPool[i].rotation.y = lerp(ob.rotationY, nb.rotationY, t);
+                        bulletsPool[i].shot = ob.shot && nb.shot;
+                        bulletsPool[i].flying = ob.flying && nb.flying;
+
+                    }
+                }
             }
         }
 
@@ -252,6 +267,7 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
         heldBullet.z = cameraCoords.z + 0.8f;
 
     }
+
     public float lerp(float a, float b, float t) {
         return a + (b - a) * t;
     }

@@ -12,6 +12,8 @@ public class Snapshot {
     Client me = new Client();
     Client[] clients = new Client[4];
 
+    final Object mutex =  new Object();
+
     public Snapshot() {
         // initialize bullets
         for (int i = 0; i < bullets.length; i++) {
