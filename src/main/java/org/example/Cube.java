@@ -51,7 +51,7 @@ public class Cube {
         for (int i = -1; i < 2; i+=2) {
             for (int j = -1; j < 2; j+=2) {
                 for (int k = -1; k < 2; k+=2) {
-                    arr[count++] = new Triple(x + i*0.5f, y + j*0.5f, z + k*0.5f);
+                    arr[count++] = new Triple(x + i*size/2f, y + j*size/2f, z + k*size/2f);
                 }
             }
         }

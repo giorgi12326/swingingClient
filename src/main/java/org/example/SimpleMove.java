@@ -59,6 +59,7 @@ public class SimpleMove extends Canvas implements KeyListener, MouseListener, Mo
     DatagramPacket sendPacket;
 
     DatagramSocket socket = null;
+    private int clientSize = 0;
 
     public SimpleMove() {
         this.cubes = new ArrayList<>();
@@ -231,6 +232,7 @@ public class SimpleMove extends Canvas implements KeyListener, MouseListener, Mo
         if (older != null && newer != null) {
             synchronized (older.mutex) {
                 synchronized (newer.mutex) {
+                    clientSize = Math.min(older.clientSize, newer.clientSize);
 
                     float t = (newer.time == older.time) ? 0f
                             : (renderTime - older.time) / (float) (newer.time - older.time);
@@ -331,15 +333,17 @@ public class SimpleMove extends Canvas implements KeyListener, MouseListener, Mo
 
         drawCrosshair(g);
 
-        g.setColor(Color.BLUE);
-
-        for(Client client : clients) {
+        for (int i = 0; i < clientSize; i++) {
+            Client client = clients[i];
+            g.setColor(Color.PINK);
             client.hitbox.x = client.cameraCoords.x;
-            client.hitbox.y = client.cameraCoords.y;
+            client.hitbox.y = client.cameraCoords.y + 0.25f;
             client.hitbox.z = client.cameraCoords.z;
-//            client.hitbox.update();
+//            client.hitbox.rotateY(1);
             client.hitbox.draw(g, this);
         }
+        g.setColor(Color.BLUE);
+
 
         for(Triple point : floor)
             point.draw(g,this);
@@ -368,7 +372,7 @@ public class SimpleMove extends Canvas implements KeyListener, MouseListener, Mo
                         SCREEN_HEIGHT - hookProjected[GrapplingHead.edges.get(16).y].y));// - because panel y starts from top
 
         }
-        else if(bulletHeld)
+        if((bulletHeld && !grapplingEquipped) || (grapplingEquipped && bulletHeld && grapplingHead.shot))
             heldBullet.drawEdges(g, this);
 
         for (BulletHead bullet : bulletsPool){
@@ -466,37 +470,26 @@ public class SimpleMove extends Canvas implements KeyListener, MouseListener, Mo
         canvas.start();
     }
 
-    private Triple moveForward() {
-        float dx = moveSpeed * (float) Math.sin(cameraRotation.y);
-        float dz = moveSpeed * (float) Math.cos(cameraRotation.y);
-        return new Triple(dx,0f, dz);
-    }
-
-    private Triple moveBackward() {
-        float dx = -moveSpeed * (float) Math.sin(cameraRotation.y);
-        float dz = -moveSpeed * (float) Math.cos(cameraRotation.y);
-        return new Triple(dx,0f, dz);
-    }
-
-    private Triple moveRight() {
-        float dx = moveSpeed * (float) Math.cos(cameraRotation.y);
-        float dz = moveSpeed * (float) -Math.sin(cameraRotation.y);
-        return new Triple(dx,0f, dz);
-    }
-
-    private Triple moveLeft() {
-        float dx = -moveSpeed * (float)Math.cos(cameraRotation.y);
-        float dz = moveSpeed * (float)Math.sin(cameraRotation.y);
-        return new Triple(dx,0f, dz);
-    }
-
     @Override
     public void keyPressed(KeyEvent e) {
-        keysPressed[e.getKeyCode()] = true;
-        if(e.getKeyChar() == 'o')
-            INTERP_DELAY_MS = Math.max(0, INTERP_DELAY_MS-1);
-        if(e.getKeyChar() == 'p')
+        if(e.getKeyChar() == 'o') {
+            INTERP_DELAY_MS = Math.max(0, INTERP_DELAY_MS - 1);
+            return;
+        }
+        if(e.getKeyChar() == 'p') {
             INTERP_DELAY_MS++;
+            return;
+        }
+        if(e.getKeyChar() == 'k') {
+            FOV -= 0.1f;
+            return;
+        }
+        if(e.getKeyChar() == 'l') {
+            FOV += 0.1f;
+            return;
+        }
+        keysPressed[e.getKeyCode()] = true;
+
     }
 
     @Override
@@ -533,17 +526,11 @@ public class SimpleMove extends Canvas implements KeyListener, MouseListener, Mo
 
     @Override
     public void mousePressed(MouseEvent e) {
-        if(e.getButton() == MouseEvent.BUTTON3) {
-            buttonsPressed[e.getButton()] = !buttonsPressed[e.getButton()];
-            return;
-        }
         buttonsPressed[e.getButton()] = true;
     }
 
     @Override
     public void mouseReleased(MouseEvent e) {
-        if(e.getButton() == MouseEvent.BUTTON3)
-            return;
 
         buttonsPressed[e.getButton()] = false;
     }
