@@ -12,10 +12,8 @@ public class Client {
     boolean swinging;
     boolean grapplingEquipped;
     boolean inAir;
+    boolean bulletHeld;
 
-    float speedX = 0f;
-    float speedY = 0f;
-    float speedZ = 0f;
     Cube hitbox = new Cube(0f,0f,0f,0.5f);
 
 }

@@ -9,7 +9,7 @@ public class UdpSender {
         DatagramSocket socket = new DatagramSocket();
 
         byte[] data = "Hello via UDP".getBytes();
-        InetAddress ip = InetAddress.getByName("82.211.163.67");
+        InetAddress ip = InetAddress.getLocalHost();
 
         DatagramPacket packet =
                 new DatagramPacket(data, data.length, ip, 1234);

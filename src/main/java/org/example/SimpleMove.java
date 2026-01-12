@@ -9,11 +9,9 @@ import java.awt.event.*;
 import java.awt.geom.Line2D;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferStrategy;
-import java.io.IOException;
 import java.net.*;
 import java.nio.ByteBuffer;
 import java.util.*;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseListener, MouseMotionListener {
     public static final float SCREEN_WIDTH = 1280f;
@@ -24,6 +22,10 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
     public static float FOV = 1;
     long lastTime = System.nanoTime();
     long lastPacketReceived = 0;
+
+
+    Deque<Snapshot> snapshotList = new ArrayDeque<>();
+    static int INTERP_DELAY_MS = 30;
 
     public static boolean swinging = false;
     public static boolean grapplingEquipped = false;
@@ -42,17 +44,19 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
     List<Cube> cubes;
     List<DeathCube> deathCubes = new ArrayList<>();
     List<Triple> floor = new ArrayList<>();
-    List<BulletHead> bulletsPool = new ArrayList<>();
     BulletHead heldBullet = new BulletHead();
     boolean bulletHeld;
     List<Client> clients = new ArrayList<>();
 
+    BulletHead[] bulletsPool = new BulletHead[500];;
+    Snapshot[] snapshots = new Snapshot[30];
+    int snapshotPointer = 0;
+
     Gun gun = new Gun(0,0,0);
     GrapplingHead grapplingHead = new GrapplingHead(0,0f,0);
-    private Triple anchor;
+//    private Triple anchor;
 
     DatagramSocket socket = null;
-    private Triple tempPosition = new Triple(0f,0f,0f);
 
     public SimpleMove() {
         this.cubes = new ArrayList<>();
@@ -71,8 +75,13 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
         addMouseListener(this);
 
         setSize((int)SCREEN_WIDTH, (int)SCREEN_HEIGHT);
-        for (int i = 0; i < 50; i++) {
-            bulletsPool.add(new BulletHead());
+
+        for (int i = 0; i < 500; i++) {
+            bulletsPool[i] = new BulletHead();
+        }
+
+        for (int i = 0; i < 30; i++) {
+            snapshots[i] = new Snapshot();
         }
 
         for (int i = -10; i < 10; i++) {
@@ -84,78 +93,74 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
 
     public void start() {
         try {
-            socket = new DatagramSocket(1234);
+            socket = new DatagramSocket(1229, InetAddress.getLocalHost());
         } catch (SocketException e) {
+            throw new RuntimeException(e);
+        } catch (UnknownHostException e) {
             throw new RuntimeException(e);
         }
 
-        new Thread(this).start();// just use run?
 
         new Thread(() -> {
 
             try {
                 byte[] buffer = new byte[2048];
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
-                ByteBuffer bb = ByteBuffer.wrap(packet.getData(), 0, packet.getLength());
+                ByteBuffer bb = ByteBuffer.wrap(buffer);
 
                 while (true) {
-
                     socket.receive(packet);
-
+                    Snapshot snapshot = snapshots[(snapshotPointer++)%snapshots.length];
                     bb.position(0);
                     bb.limit(packet.getLength());
 
                     System.out.println("packet took " + (System.currentTimeMillis() - lastPacketReceived) + "ms");
                     lastPacketReceived = System.currentTimeMillis();
 
+                    snapshot.me.cameraCoords.x = bb.getFloat();
+                    snapshot.me.cameraCoords.y = bb.getFloat();
+                    snapshot.me.cameraCoords.z = bb.getFloat();
 
-                    float x = bb.getFloat();
-                    float y = bb.getFloat();
-                    float z = bb.getFloat();
-                    int bulletSize = bb.getInt();
+                    snapshot.bulletSize = bb.getInt();
 
                     for (BulletHead head : bulletsPool) head.x = 0;
 
-                    for (int i = 0; i < bulletSize; i++) {
-                        BulletHead bulletHead = bulletsPool.get(i);
-                        bulletHead.x = bb.getFloat();
-                        bulletHead.y = bb.getFloat();
-                        bulletHead.z = bb.getFloat();
-                        bulletHead.rotation.x = bb.getFloat();
-                        bulletHead.rotation.y = bb.getFloat();
-                        bulletHead.shot = bb.get() == 1;
-                        bulletHead.flying = bb.get() == 1;
+                    for (int i = 0; i < snapshot.bulletSize; i++) {
+                        System.out.println(snapshot.bullets);
+                        BulletSnapshot bulletSnapshot = snapshot.bullets[i];
+                        bulletSnapshot.x = bb.getFloat();
+                        bulletSnapshot.y = bb.getFloat();
+                        bulletSnapshot.z = bb.getFloat();
+                        bulletSnapshot.rotationX = bb.getFloat();
+                        bulletSnapshot.rotationY = bb.getFloat();
+                        bulletSnapshot.shot = bb.get() == 1;
+                        bulletSnapshot.flying = bb.get() == 1;
                     }
 
-                    bulletHeld = (bb.get() == 1);
-                    grapplingEquipped = (bb.get() == 1);
+                    snapshot.me.bulletHeld = (bb.get() == 1);
+                    snapshot.me.grapplingEquipped = (bb.get() == 1);
 
                     int clientSize = bb.getInt();
-                    while(clientSize !=  clients.size()) {
-                        if(clientSize > clients.size())
-                            clients.add(new Client());
-                        if(clientSize > clients.size())
-                            clients.remove(clients.size()-1);
-                    }
+
                     for (int i = 0; i < clientSize; i++) {
-                        Client client = clients.get(i);
+                        Client client = snapshot.clients[i];
                         client.cameraCoords.x =  bb.getFloat();
                         client.cameraCoords.y =  bb.getFloat();
                         client.cameraCoords.z =  bb.getFloat();
+                        System.out.println(client.cameraCoords.x + " " + client.cameraCoords.y);
                         client.cameraRotation.x =  bb.getFloat();
                         client.cameraRotation.y =  bb.getFloat();
                         client.grapplingEquipped =  bb.get()==1;
                     }
+                    snapshot.time = bb.getLong();
 
-                    tempPosition.x = x;
-                    tempPosition.y = y;
-                    tempPosition.z = z;
-
+                    System.out.println("processing time " + (System.currentTimeMillis() -  lastPacketReceived));
                 }
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
         }).start();
+        run();
 
     }
 
@@ -179,7 +184,7 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
 
                 byte[] data = buffer.array();
 
-                DatagramPacket packet = new DatagramPacket(data, data.length, InetAddress.getByName("82.211.163.67"), 1234);
+                DatagramPacket packet = new DatagramPacket(data, data.length, InetAddress.getLocalHost(), 1247);
                 socket.send(packet);
 
                 long now = System.nanoTime();
@@ -202,9 +207,40 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
     }
 
     private void update() {
-        cameraCoords.x = tempPosition.x;
-        cameraCoords.y = tempPosition.y;
-        cameraCoords.z = tempPosition.z;
+        Snapshot older = null;
+        Snapshot newer = null;
+        long renderTime = System.currentTimeMillis() - INTERP_DELAY_MS;
+
+        for (Snapshot s : snapshots) {
+            if (s.time <= renderTime) {
+                if (older == null || s.time > older.time) {
+                    older = s;
+                }
+            }
+
+            if (s.time > renderTime) {
+                if (newer == null || s.time < newer.time) {
+                    newer = s;
+                }
+            }
+        }
+
+        if (older != null && newer != null) {
+            float t = (renderTime - older.time) / (float)(newer.time - older.time);
+            cameraCoords.x = lerp(older.me.cameraCoords.x, newer.me.cameraCoords.x, t);
+            cameraCoords.y = lerp(older.me.cameraCoords.y, newer.me.cameraCoords.y, t);
+            cameraCoords.z = lerp(older.me.cameraCoords.z, newer.me.cameraCoords.z, t);
+
+            for (int i = 0; i < Math.min(older.bulletSize, newer.bulletSize); i++) {
+                BulletSnapshot ob = older.bullets[i];
+                BulletSnapshot nb = newer.bullets[i];
+                bulletsPool[i].x = lerp(ob.x, nb.x, t);
+                bulletsPool[i].y = lerp(ob.y, nb.y, t);
+                bulletsPool[i].z = lerp(ob.z, nb.z, t);
+                bulletsPool[i].rotation.x = lerp(ob.rotationX, nb.rotationX, t);
+                bulletsPool[i].rotation.y = lerp(ob.rotationY, nb.rotationY, t);
+            }
+        }
 
         gun.x = cameraCoords.x + 0.1f;
         gun.y = cameraCoords.y;
@@ -214,6 +250,9 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
         heldBullet.y = cameraCoords.y- 0.15f;
         heldBullet.z = cameraCoords.z + 0.8f;
 
+    }
+    public float lerp(float a, float b, float t) {
+        return a + (b - a) * t;
     }
 
     private void render(BufferStrategy bs) {
@@ -270,6 +309,7 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
         }
 
         g.drawString("FPS: " + (int)(1/deltaTime), 30, 30);
+        g.drawString("delay: " + INTERP_DELAY_MS, 80, 30);
 
         g.dispose();
         bs.show();
@@ -385,6 +425,10 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
     @Override
     public void keyPressed(KeyEvent e) {
         keysPressed[e.getKeyCode()] = true;
+        if(e.getKeyChar() == 'o')
+            INTERP_DELAY_MS = Math.max(0, INTERP_DELAY_MS-1);
+        if(e.getKeyChar() == 'p')
+            INTERP_DELAY_MS++;
     }
 
     @Override
