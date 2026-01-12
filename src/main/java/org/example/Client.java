@@ -14,5 +14,4 @@ public class Client {
     boolean bulletHeld;
 
     Cube hitbox = new Cube(0f,0f,0f,0.5f);
-
 }
