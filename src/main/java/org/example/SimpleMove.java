@@ -114,7 +114,7 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
                     bb.position(0);
                     bb.limit(packet.getLength());
 
-                    System.out.println("packet took " + (System.currentTimeMillis() - lastPacketReceived) + "ms");
+//                    System.out.println("packet took " + (System.currentTimeMillis() - lastPacketReceived) + "ms");
                     lastPacketReceived = System.currentTimeMillis();
 
                     snapshot.me.cameraCoords.x = bb.getFloat();
@@ -126,7 +126,6 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
                     for (BulletHead head : bulletsPool) head.x = 0;
 
                     for (int i = 0; i < snapshot.bulletSize; i++) {
-                        System.out.println(snapshot.bullets);
                         BulletSnapshot bulletSnapshot = snapshot.bullets[i];
                         bulletSnapshot.x = bb.getFloat();
                         bulletSnapshot.y = bb.getFloat();
@@ -144,13 +143,12 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
 
                     for (int i = 0; i < clientSize; i++) {
                         Client client = snapshot.clients[i];
-                        client.cameraCoords.x =  bb.getFloat();
-                        client.cameraCoords.y =  bb.getFloat();
-                        client.cameraCoords.z =  bb.getFloat();
-                        System.out.println(client.cameraCoords.x + " " + client.cameraCoords.y);
-                        client.cameraRotation.x =  bb.getFloat();
-                        client.cameraRotation.y =  bb.getFloat();
-                        client.grapplingEquipped =  bb.get()==1;
+                        client.cameraCoords.x = bb.getFloat();
+                        client.cameraCoords.y = bb.getFloat();
+                        client.cameraCoords.z = bb.getFloat();
+                        client.cameraRotation.x = bb.getFloat();
+                        client.cameraRotation.y = bb.getFloat();
+                        client.grapplingEquipped = bb.get()==1;
                     }
                     snapshot.time = bb.getLong();
 
@@ -239,6 +237,9 @@ public class SimpleMove extends Canvas implements Runnable, KeyListener, MouseLi
                 bulletsPool[i].z = lerp(ob.z, nb.z, t);
                 bulletsPool[i].rotation.x = lerp(ob.rotationX, nb.rotationX, t);
                 bulletsPool[i].rotation.y = lerp(ob.rotationY, nb.rotationY, t);
+                bulletsPool[i].shot = ob.shot && nb.shot;
+                bulletsPool[i].flying = ob.flying && nb.flying;
+
             }
         }
 
