@@ -14,7 +14,7 @@ import java.net.*;
 import java.nio.ByteBuffer;
 import java.util.*;
 
-public class SimpleMove extends Canvas implements KeyListener, MouseListener, MouseMotionListener {
+public class SimpleMove extends Canvas {
     public static final float SCREEN_WIDTH = 1280f;
     public static final float SCREEN_HEIGHT = 720f;
     public static final float moveSpeed = 10f;
@@ -32,16 +32,13 @@ public class SimpleMove extends Canvas implements KeyListener, MouseListener, Mo
     public static Triple cameraCoords = new Triple(0f,0f,0f);
     public static Pair<Float> cameraRotation = new Pair<>(0f,0f);
 
-    boolean[] keysPressed = new boolean[256];
-    boolean[] buttonsPressed = new boolean[256];
-
-    public final Set<Integer> keysDown = new HashSet<>();
+    public static boolean[] keysPressed = new boolean[256];
+    public static boolean[] buttonsPressed = new boolean[256];
 
     int[] trackedKeys = {KeyEvent.VK_W, KeyEvent.VK_A, KeyEvent.VK_S, KeyEvent.VK_D, KeyEvent.VK_SPACE};
     int[] trackedButtons = {MouseEvent.BUTTON1, MouseEvent.BUTTON3};
 
     List<Cube> cubes;
-    List<DeathCube> deathCubes = new ArrayList<>();
     List<Triple> floor = new ArrayList<>();
     BulletHead heldBullet = new BulletHead();
     boolean bulletHeld;
@@ -72,10 +69,11 @@ public class SimpleMove extends Canvas implements KeyListener, MouseListener, Mo
         cubes.add(new Cube(0.5f,4.5f, 18.5f,1f));
         cubes.add(new Cube(0.5f,4.5f, 23.5f,1f));
         cubes.add(new Cube(0.5f,4.5f, 30.5f,1f));
+        new Controller(this);
 
-        addKeyListener(this);
-        addMouseMotionListener(this);
-        addMouseListener(this);
+//        addKeyListener(this);
+//        addMouseMotionListener(this);
+//        addMouseListener(this);
 
         setSize((int)SCREEN_WIDTH, (int)SCREEN_HEIGHT);
 
@@ -97,7 +95,8 @@ public class SimpleMove extends Canvas implements KeyListener, MouseListener, Mo
             }
         }
         try {
-            sendPacket = new DatagramPacket(sendArray, sendArray.length, InetAddress.getLocalHost(), 1247);
+            sendPacket = new DatagramPacket(sendArray, sendArray.length, InetAddress.getByName("192.168.1.20"), 1247);
+//            sendPacket = new DatagramPacket(sendArray, sendArray.length, InetAddress.getLocalHost(), 1247);
         } catch (UnknownHostException e) {
             throw new RuntimeException(e);
         }
@@ -105,7 +104,7 @@ public class SimpleMove extends Canvas implements KeyListener, MouseListener, Mo
 
     public void start() {
         try {
-            socket = new DatagramSocket(1229, InetAddress.getLocalHost());
+            socket = new DatagramSocket(1224, InetAddress.getLocalHost());
         } catch (SocketException | UnknownHostException e) {
             throw new RuntimeException(e);
         }
@@ -119,8 +118,9 @@ public class SimpleMove extends Canvas implements KeyListener, MouseListener, Mo
 
                 while (true) {
                     socket.receive(packet);
+                    System.out.println(System.currentTimeMillis() - lastPacketReceived);
+                    lastPacketReceived = System.currentTimeMillis();
                     Snapshot snapshot = snapshots[(snapshotPointer++)%snapshots.length];
-                    synchronized (snapshot.mutex) {
                         bb.position(0);
                         bb.limit(packet.getLength());
 
@@ -172,7 +172,6 @@ public class SimpleMove extends Canvas implements KeyListener, MouseListener, Mo
                             client.grapplingEquipped = bb.get() == 1;
                         }
                         snapshot.time = bb.getLong();
-                    }
 
                 }
             } catch (Exception e) {
@@ -230,8 +229,8 @@ public class SimpleMove extends Canvas implements KeyListener, MouseListener, Mo
         }
 
         if (older != null && newer != null) {
-            synchronized (older.mutex) {
-                synchronized (newer.mutex) {
+//            synchronized (older.mutex) {
+//                synchronized (newer.mutex) {
                     clientSize = Math.min(older.clientSize, newer.clientSize);
 
                     float t = (newer.time == older.time) ? 0f
@@ -282,8 +281,8 @@ public class SimpleMove extends Canvas implements KeyListener, MouseListener, Mo
                         clients[i].grapplingHead.rotation.y = lerp(oc.grapplingHead.rotation.y, nc.grapplingHead.rotation.y, t);
                     }
 
-                }
-            }
+//                }
+//            }
         }
 
         gun.x = cameraCoords.x + 0.1f;
@@ -340,30 +339,26 @@ public class SimpleMove extends Canvas implements KeyListener, MouseListener, Mo
             client.hitbox.y = client.cameraCoords.y + 0.25f;
             client.hitbox.z = client.cameraCoords.z;
 //            client.hitbox.rotateY(1);
-            client.hitbox.draw(g, this);
+            client.hitbox.draw(g);
         }
         g.setColor(Color.BLUE);
 
 
         for(Triple point : floor)
-            point.draw(g,this);
+            point.draw(g);
 
         for (Cube cube: cubes)
-            cube.draw(g, this);
-
-        for (DeathCube cube: deathCubes)
-            cube.draw(g, this);
+            cube.draw(g);
 
         g.setColor(Color.YELLOW);
-        gun.draw(g, this);
-
+        gun.draw(g);
 
         if(grapplingEquipped) {
-            grapplingHead.drawEdges(g, this);
+            grapplingHead.drawEdges(g);
 
-            Pair<Float>[] projectedDotsForGun = gun.getProjectedDots(this);
+            Pair<Float>[] projectedDotsForGun = gun.getProjectedDots();
 
-            Pair<Float>[] hookProjected = grapplingHead.getProjectedDots(this);
+            Pair<Float>[] hookProjected = grapplingHead.getProjectedDots();
             if(projectedDotsForGun[Gun.edges.get(12).x] != null && hookProjected[GrapplingHead.edges.get(16).y] != null)
                 g.draw(new Line2D.Float(
                         projectedDotsForGun[Gun.edges.get(12).x].x,
@@ -372,12 +367,13 @@ public class SimpleMove extends Canvas implements KeyListener, MouseListener, Mo
                         SCREEN_HEIGHT - hookProjected[GrapplingHead.edges.get(16).y].y));// - because panel y starts from top
 
         }
+
         if((bulletHeld && !grapplingEquipped) || (grapplingEquipped && bulletHeld && grapplingHead.shot))
-            heldBullet.drawEdges(g, this);
+            heldBullet.drawEdges(g);
 
         for (BulletHead bullet : bulletsPool){
             if(bullet.x != 0)
-                bullet.drawEdges(g, this);
+                bullet.drawEdges(g);
         }
 
         g.drawString("FPS: " + (int)(1/deltaTime), 30, 30);
@@ -401,55 +397,9 @@ public class SimpleMove extends Canvas implements KeyListener, MouseListener, Mo
         g.fill(new Rectangle2D.Float(SCREEN_WIDTH/2f - 2f, SCREEN_HEIGHT/2f-10f, 4f, 20f));
     }
 
-    private Triple rotationToDirection(Pair<Float> rotation) {
-        float dx = (float)(Math.cos(rotation.x) * Math.sin(rotation.y));
-        float dy = (float)(Math.sin(rotation.x));
-        float dz = (float)(Math.cos(rotation.x) * Math.cos(rotation.y));
-        return new Triple(dx, dy, dz);
-    }
 
-    public Pair<Float>projectTo2D(float x, float y, float z) {
-        x -= cameraCoords.x;
-        y -= cameraCoords.y;
-        z -= cameraCoords.z;
 
-        float cosY = (float)Math.cos(-cameraRotation.y);
-        float sinY = (float)Math.sin(-cameraRotation.y);
-        float xr = x * cosY + z * sinY;
-        float zr2 = -x * sinY + z * cosY;
-        x = xr;
-        z = zr2;
-
-        float cosX = (float)Math.cos(cameraRotation.x);
-        float sinX = (float)Math.sin(cameraRotation.x);
-        float yr = y * cosX - z * sinX;
-        float zr = y * sinX + z * cosX;
-        y = yr;
-        z = zr;
-
-        if(z < 0) return null;
-
-        float d = FOV * x/z;
-        float t = FOV * y/z;
-
-//        if(Math.abs(y) > Math.abs(z) || Math.abs(x) > Math.abs(z)) return null; // only sohw visible nodes , wihtout it things in front of camera z is drawn off screen
-
-        return new Pair<>(SCREEN_WIDTH * d/2f + SCREEN_WIDTH/2f, ((SCREEN_HEIGHT*t)/2f) + (SCREEN_HEIGHT/2f));
-    }
-    public Pair<Float>projectTo2DWithoutRotatingAgainstCamera(float x, float y, float z) {
-        x -= cameraCoords.x;
-        y -= cameraCoords.y;
-        z -= cameraCoords.z;
-
-        float d = x/z;
-        float t = y/z;
-
-//        if(Math.abs(y) > Math.abs(z) || Math.abs(x) > Math.abs(z)) return null; // only sohw visible nodes , wihtout it things in front of camera z is drawn off screen
-
-        return new Pair<>(SCREEN_WIDTH * d/2f + SCREEN_WIDTH/2f, ((SCREEN_HEIGHT*t)/2f) + (SCREEN_HEIGHT/2f));
-    }
-
-    public static void main(String[] args) throws Exception {
+    public static void main(String[] args) {
         createWindow();
     }
 
@@ -470,78 +420,4 @@ public class SimpleMove extends Canvas implements KeyListener, MouseListener, Mo
         canvas.start();
     }
 
-    @Override
-    public void keyPressed(KeyEvent e) {
-        if(e.getKeyChar() == 'o') {
-            INTERP_DELAY_MS = Math.max(0, INTERP_DELAY_MS - 1);
-            return;
-        }
-        if(e.getKeyChar() == 'p') {
-            INTERP_DELAY_MS++;
-            return;
-        }
-        if(e.getKeyChar() == 'k') {
-            FOV -= 0.1f;
-            return;
-        }
-        if(e.getKeyChar() == 'l') {
-            FOV += 0.1f;
-            return;
-        }
-        keysPressed[e.getKeyCode()] = true;
-
-    }
-
-    @Override
-    public void keyReleased(KeyEvent e) {
-        keysPressed[e.getKeyCode()] = false;
-    }
-
-    @Override
-    public void keyTyped(KeyEvent e) {
-
-    }
-
-    @Override
-    public void mouseDragged(MouseEvent e) {
-
-    }
-
-    @Override
-    public void mouseMoved(MouseEvent e) {
-        float a = (float) Math.PI * -((2 * e.getY() / SCREEN_HEIGHT) - 1);// - because panel y starts from top
-        if(a > 0)
-            cameraRotation.x = Math.min(a,1.57f);
-        else if(a < 0)
-            cameraRotation.x = Math.max(a,-1.57f);
-
-        cameraRotation.y = (float)Math.PI * ((2 * e.getX() / SCREEN_WIDTH) - 1);
-
-    }
-
-    @Override
-    public void mouseClicked(MouseEvent e) {
-
-    }
-
-    @Override
-    public void mousePressed(MouseEvent e) {
-        buttonsPressed[e.getButton()] = true;
-    }
-
-    @Override
-    public void mouseReleased(MouseEvent e) {
-
-        buttonsPressed[e.getButton()] = false;
-    }
-
-    @Override
-    public void mouseEntered(MouseEvent e) {
-
-    }
-
-    @Override
-    public void mouseExited(MouseEvent e) {
-
-    }
 }

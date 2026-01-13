@@ -16,17 +16,17 @@ public abstract class Shootable extends Projectable{
     public boolean markAsDeleted;
 
     @Override
-    public Pair<Float> projectWithStrategy(SimpleMove simpleMove, Triple point, Triple rotatedPoint) {
+    public Pair<Float> projectWithStrategy(Triple point, Triple rotatedPoint) {
         Pair<Float> projected;
        if(shot)
-            projected = simpleMove.projectTo2D(rotatedPoint.x, rotatedPoint.y, rotatedPoint.z);
+            projected = UtilProject.projectTo2D(rotatedPoint.x, rotatedPoint.y, rotatedPoint.z);
         else
-            projected = simpleMove.projectTo2DWithoutRotatingAgainstCamera(point.x, point.y, point.z);
+            projected = UtilProject.projectTo2DWithoutRotatingAgainstCamera(point.x, point.y, point.z);
         return projected;
     }
 
-    public void drawEdges(Graphics2D g, SimpleMove simpleMove) {
-        Pair<Float>[] projectedDotsForGun = getProjectedDots(simpleMove);
+    public void drawEdges(Graphics2D g) {
+        Pair<Float>[] projectedDotsForGun = getProjectedDots();
 
         for(Pair<Integer> pair : getStaticEdges()){
             if(projectedDotsForGun[pair.x] == null || projectedDotsForGun[pair.y] == null) continue;

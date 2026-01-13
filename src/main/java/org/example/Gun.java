@@ -81,7 +81,7 @@ public class Gun extends Projectable {
 
 
     @Override
-    protected Pair<Float> projectWithStrategy(SimpleMove simpleMove, Triple point, Triple rotatedPoint) {
-        return simpleMove.projectTo2DWithoutRotatingAgainstCamera(point.x, point.y, point.z);
+    protected Pair<Float> projectWithStrategy(Triple point, Triple rotatedPoint) {
+        return UtilProject.projectTo2DWithoutRotatingAgainstCamera(point.x, point.y, point.z);
     }
 }

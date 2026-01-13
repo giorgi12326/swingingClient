@@ -76,20 +76,20 @@ public class Cube {
     }
 
 
-    Pair<Float>[] getProjectedDotsForCube(SimpleMove simpleMove) {
+    Pair<Float>[] getProjectedDotsForCube() {
         Pair<Float>[] projectedDots = (Pair<Float>[]) new Pair<?>[8];
         int count =-1;
         for(Triple point: getPoints()) {
             count++;
-            Pair<Float> projected = simpleMove.projectTo2D(point.x, point.y, point.z);
+            Pair<Float> projected = UtilProject.projectTo2D(point.x, point.y, point.z);
             if(projected == null) continue;
             projectedDots[count] = projected;
         }
         return projectedDots;
     }
 
-    public void draw(Graphics2D g, SimpleMove simpleMove) {
-        Pair<Float>[] projectedDots = getProjectedDotsForCube(simpleMove);
+    public void draw(Graphics2D g) {
+        Pair<Float>[] projectedDots = getProjectedDotsForCube();
         for(Pair<Integer> pair : Cube.edges){
             if(projectedDots[pair.x] == null || projectedDots[pair.y] == null) continue;
             g.draw(new Line2D.Float(

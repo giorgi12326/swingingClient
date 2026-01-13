@@ -14,8 +14,8 @@ public abstract class Projectable {
 
     Pair<Float> rotation = new Pair<>(0f,0f);
 
-    public void draw(Graphics2D g, SimpleMove simpleMove) {
-        Pair<Float>[] projectedDots = getProjectedDots(simpleMove);
+    public void draw(Graphics2D g) {
+        Pair<Float>[] projectedDots = getProjectedDots();
 
         for(Pair<Integer> pair : Gun.edges){
             if(projectedDots[pair.x] == null || projectedDots[pair.y] == null) continue;
@@ -27,14 +27,14 @@ public abstract class Projectable {
         }
     }
 
-    public Pair<Float>[] getProjectedDots(SimpleMove simpleMove) {
+    public Pair<Float>[] getProjectedDots() {
         Triple[] nodes = getNodes();
         Pair<Float>[] projectedDots = (Pair<Float>[]) new Pair<?>[nodes.length];
         int count =-1;
         for(Triple point: nodes) {
             Triple rotatedPoint = point.rotateXY(new Triple(x, y, z), rotation);
             count++;
-            Pair<Float> projected = projectWithStrategy(simpleMove, point, rotatedPoint);
+            Pair<Float> projected = projectWithStrategy(point, rotatedPoint);
             if(projected == null) continue;
             projectedDots[count] = projected;
         }
@@ -43,6 +43,6 @@ public abstract class Projectable {
 
     protected abstract Triple[] getNodes();
 
-    protected abstract Pair<Float> projectWithStrategy(SimpleMove simpleMove, Triple point, Triple rotatedPoint);
+    protected abstract Pair<Float> projectWithStrategy(Triple point, Triple rotatedPoint);
 
 }

@@ -13,5 +13,5 @@ public class Client {
     boolean inAir;
     boolean bulletHeld;
 
-    Cube hitbox = new Cube(0f,0f,0f,0.5f);
+    Cube hitbox = new Cube(0f,0f,0f,1f);
 }
