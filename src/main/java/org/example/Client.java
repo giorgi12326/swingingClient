@@ -12,6 +12,7 @@ public class Client {
     boolean grapplingEquipped;
     boolean inAir;
     boolean bulletHeld;
+    long time;
 
     Cube hitbox = new Cube(0f,0f,0f,1f);
 }

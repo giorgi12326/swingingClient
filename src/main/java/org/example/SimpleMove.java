@@ -24,8 +24,7 @@ public class SimpleMove extends Canvas {
     long lastTime = System.nanoTime();
     long lastPacketReceived = 0;
 
-    long serverOffset = 0;
-    long minServerOffset = Long.MAX_VALUE;
+    long serverOffset = Long.MAX_VALUE;
 
     static int INTERP_DELAY_MS = 30;
 
@@ -53,13 +52,15 @@ public class SimpleMove extends Canvas {
 
     Gun gun = new Gun(0,0,0);
     GrapplingHead grapplingHead = new GrapplingHead(0,0f,0);
+    long currentPing = 0;
 
-    byte[] sendArray = new byte[15];
+    byte[] sendArray = new byte[23];
     ByteBuffer sendBuffer = ByteBuffer.wrap(sendArray);
     DatagramPacket sendPacket;
 
     DatagramSocket socket = null;
     private int clientSize = 0;
+    private long lastRecievedServerTime;
 
     public SimpleMove() {
         this.cubes = new ArrayList<>();
@@ -98,7 +99,7 @@ public class SimpleMove extends Canvas {
             }
         }
         try {
-            sendPacket = new DatagramPacket(sendArray, sendArray.length, InetAddress.getByName("192.168.1.20"), 1247);
+            sendPacket = new DatagramPacket(sendArray, sendArray.length, InetAddress.getByName("82.211.163.67"), 1234);
 //            sendPacket = new DatagramPacket(sendArray, sendArray.length, InetAddress.getLocalHost(), 1247);
         } catch (UnknownHostException e) {
             throw new RuntimeException(e);
@@ -107,7 +108,7 @@ public class SimpleMove extends Canvas {
 
     public void start() {
         try {
-            socket = new DatagramSocket(1224, InetAddress.getLocalHost());
+            socket = new DatagramSocket(1229, InetAddress.getLocalHost());
         } catch (SocketException | UnknownHostException e) {
             throw new RuntimeException(e);
         }
@@ -178,13 +179,15 @@ public class SimpleMove extends Canvas {
                             client.grapplingHead.rotation.y = bb.getFloat();
                             client.grapplingEquipped = bb.get() == 1;
                         }
+
+                    snapshot.me.time = bb.getLong();
                     snapshot.time = bb.getLong();
 
-                    minServerOffset = Math.min(minServerOffset, snapshot.time - System.currentTimeMillis());
-                    System.out.println(minServerOffset + "OFFSET");
-//                    System.out.println(snapshot.time + " time");
-//                    System.out.println(snapshot.time + " ASd");
+                    currentPing = System.currentTimeMillis() - snapshot.me.time;
 
+                    lastRecievedServerTime = snapshot.time;
+
+                    serverOffset = Math.min(serverOffset, snapshot.time - System.currentTimeMillis());
 
                 }
             } catch (Exception e) {
@@ -229,9 +232,10 @@ public class SimpleMove extends Canvas {
         Snapshot newer = null;
         Snapshot newest = null;
 
-        long renderTime = System.currentTimeMillis() + minServerOffset - INTERP_DELAY_MS;
+        long renderTime = lastRecievedServerTime + currentPing/2 - INTERP_DELAY_MS;
 
         for (Snapshot s : snapshots) {
+
 //            // track oldest
 //            if (oldest == null || s.time  < oldest.time) {
 //                oldest = s;
@@ -261,6 +265,7 @@ public class SimpleMove extends Canvas {
         if (older != null && newer != null) {
 //            synchronized (older.mutex) {
 //                synchronized (newer.mutex) {
+
                     clientSize = Math.min(older.clientSize, newer.clientSize);
 
                     float t = (newer.time == older.time) ? 0f
@@ -344,6 +349,7 @@ public class SimpleMove extends Canvas {
 
         sendBuffer.putFloat(cameraRotation.x);
         sendBuffer.putFloat(cameraRotation.y);
+        sendBuffer.putLong(System.currentTimeMillis());
 
         sendPacket.setLength(sendBuffer.position());
         socket.send(sendPacket);
@@ -407,6 +413,7 @@ public class SimpleMove extends Canvas {
 
         g.drawString("FPS: " + (int)(1/deltaTime), 30, 30);
         g.drawString("delay: " + INTERP_DELAY_MS, 80, 30);
+        g.drawString("ping: " + currentPing, SCREEN_WIDTH - 100, 30);
 
         g.dispose();
         bs.show();
