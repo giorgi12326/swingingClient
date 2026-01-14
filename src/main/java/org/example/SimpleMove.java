@@ -24,6 +24,9 @@ public class SimpleMove extends Canvas {
     long lastTime = System.nanoTime();
     long lastPacketReceived = 0;
 
+    long serverOffset = 0;
+    long minServerOffset = Long.MAX_VALUE;
+
     static int INTERP_DELAY_MS = 30;
 
     public static boolean swinging = false;
@@ -118,8 +121,12 @@ public class SimpleMove extends Canvas {
 
                 while (true) {
                     socket.receive(packet);
+
                     System.out.println(System.currentTimeMillis() - lastPacketReceived);
                     lastPacketReceived = System.currentTimeMillis();
+
+
+
                     Snapshot snapshot = snapshots[(snapshotPointer++)%snapshots.length];
                         bb.position(0);
                         bb.limit(packet.getLength());
@@ -171,7 +178,13 @@ public class SimpleMove extends Canvas {
                             client.grapplingHead.rotation.y = bb.getFloat();
                             client.grapplingEquipped = bb.get() == 1;
                         }
-                        snapshot.time = bb.getLong();
+                    snapshot.time = bb.getLong();
+
+                    minServerOffset = Math.min(minServerOffset, snapshot.time - System.currentTimeMillis());
+                    System.out.println(minServerOffset + "OFFSET");
+//                    System.out.println(snapshot.time + " time");
+//                    System.out.println(snapshot.time + " ASd");
+
 
                 }
             } catch (Exception e) {
@@ -211,22 +224,39 @@ public class SimpleMove extends Canvas {
     }
 
     private void processReadings() {
+        Snapshot oldest = null;
         Snapshot older = null;
         Snapshot newer = null;
-        long renderTime = System.currentTimeMillis() - INTERP_DELAY_MS;
+        Snapshot newest = null;
+
+        long renderTime = System.currentTimeMillis() + minServerOffset - INTERP_DELAY_MS;
 
         for (Snapshot s : snapshots) {
+//            // track oldest
+//            if (oldest == null || s.time  < oldest.time) {
+//                oldest = s;
+//            }
+//            // track newest
+//            if (newest == null || s.time > newest.time) {
+//                newest = s;
+//            }
+
+            // snapshots for interpolation
             if (s.time <= renderTime) {
                 if (older == null || s.time > older.time) {
                     older = s;
                 }
             }
             if (s.time > renderTime) {
-                if (newer == null || s.time < newer.time) {
+                if (newer == null || s.time  < newer.time) {
                     newer = s;
                 }
             }
         }
+//
+//        if (older == null) older = oldest;
+//        if (newer == null) newer = newest;
+
 
         if (older != null && newer != null) {
 //            synchronized (older.mutex) {
@@ -272,7 +302,6 @@ public class SimpleMove extends Canvas {
                         clients[i].cameraCoords.z = lerp(oc.cameraCoords.z, nc.cameraCoords.z, t);
                         clients[i].cameraRotation.x = lerp(oc.cameraRotation.x, nc.cameraRotation.x, t);
                         clients[i].cameraRotation.y = lerp(oc.cameraRotation.y, nc.cameraRotation.y, t);
-
 
                         clients[i].grapplingHead.x = lerp(oc.grapplingHead.x, nc.grapplingHead.x, t);
                         clients[i].grapplingHead.y = lerp(oc.grapplingHead.y, nc.grapplingHead.y, t);

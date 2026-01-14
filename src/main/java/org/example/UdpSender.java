@@ -10,25 +10,17 @@ public class UdpSender {
     public static void main(String[] args) throws Exception {
         DatagramSocket socket = new DatagramSocket(1313);
 
-        byte[] data = ("SYN").getBytes();
-
-        InetAddress ip = InetAddress.getByName("192.168.1.20");
-        DatagramPacket packet =
-                new DatagramPacket(data, data.length, ip, 1234);
-
-        socket.send(packet);
-        socket.receive(packet);
-
-        data = packet.getData();
-        String synAck = new String(data);
-        System.out.println(synAck);
-        if(synAck.equals("SYN-ACK")){
-            byte[] syn = ("ACK").getBytes();
-            packet.setData(syn);
-            socket.send(packet);
+        byte[] data =  new byte[4096];
+        for (int i = 0; i < 4096; i++) {
+            data[i] = (byte)i;
         }
 
-        Thread.sleep(16);
+        InetAddress ip = InetAddress.getByName("192.168.0.102");
+        DatagramPacket packet =
+                new DatagramPacket(data, data.length, ip, 1234);
+while(true) {
+    socket.send(packet);
+}
 
     }
 }
