@@ -30,6 +30,7 @@ public class SimpleMove extends Canvas {
 
     public static boolean swinging = false;
     public static boolean grapplingEquipped = false;
+    int health;
 
     public static Triple cameraCoords = new Triple(0f,0f,0f);
     public static Pair<Float> cameraRotation = new Pair<>(0f,0f);
@@ -108,8 +109,8 @@ public class SimpleMove extends Canvas {
 
     public void start() {
         try {
-            socket = new DatagramSocket(1229, InetAddress.getLocalHost());
-        } catch (SocketException | UnknownHostException e) {
+            socket = new DatagramSocket(1279);
+        } catch (SocketException e) {
             throw new RuntimeException(e);
         }
 
@@ -135,6 +136,7 @@ public class SimpleMove extends Canvas {
                         snapshot.me.cameraCoords.x = bb.getFloat();
                         snapshot.me.cameraCoords.y = bb.getFloat();
                         snapshot.me.cameraCoords.z = bb.getFloat();
+                        snapshot.me.health = bb.getInt();
 
                         snapshot.bulletSize = bb.getInt();
 
@@ -274,6 +276,7 @@ public class SimpleMove extends Canvas {
                     cameraCoords.x = lerp(older.me.cameraCoords.x, newer.me.cameraCoords.x, t);
                     cameraCoords.y = lerp(older.me.cameraCoords.y, newer.me.cameraCoords.y, t);
                     cameraCoords.z = lerp(older.me.cameraCoords.z, newer.me.cameraCoords.z, t);
+                    health = (int) lerp(older.me.health, newer.me.health, t);
 
                     bulletHeld = older.me.bulletHeld && newer.me.bulletHeld;
                     grapplingEquipped = older.me.grapplingEquipped && newer.me.grapplingEquipped;
@@ -413,6 +416,7 @@ public class SimpleMove extends Canvas {
 
         g.drawString("FPS: " + (int)(1/deltaTime), 30, 30);
         g.drawString("delay: " + INTERP_DELAY_MS, 80, 30);
+        g.drawString(String.valueOf(health), 80, 30);
         g.drawString("ping: " + currentPing, SCREEN_WIDTH - 100, 30);
 
         g.dispose();

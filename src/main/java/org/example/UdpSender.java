@@ -15,7 +15,7 @@ public class UdpSender {
             data[i] = (byte)i;
         }
 
-        InetAddress ip = InetAddress.getByName("192.168.0.102");
+        InetAddress ip = InetAddress.getByName("http://82.211.163.67");
         DatagramPacket packet =
                 new DatagramPacket(data, data.length, ip, 1234);
 while(true) {
