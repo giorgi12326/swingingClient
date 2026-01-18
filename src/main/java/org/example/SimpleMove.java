@@ -30,7 +30,7 @@ public class SimpleMove extends Canvas {
 
     public static boolean swinging = false;
     public static boolean grapplingEquipped = false;
-    int health;
+    int health = 100;
 
     public static Triple cameraCoords = new Triple(0f,0f,0f);
     public static Pair<Float> cameraRotation = new Pair<>(0f,0f);
@@ -62,6 +62,8 @@ public class SimpleMove extends Canvas {
     DatagramSocket socket = null;
     private int clientSize = 0;
     private long lastRecievedServerTime;
+    private boolean isDead;
+    private long timeOfLocalDeath;
 
     public SimpleMove() {
         this.cubes = new ArrayList<>();
@@ -109,7 +111,7 @@ public class SimpleMove extends Canvas {
 
     public void start() {
         try {
-            socket = new DatagramSocket(1279);
+            socket = new DatagramSocket(1945);
         } catch (SocketException e) {
             throw new RuntimeException(e);
         }
@@ -126,8 +128,6 @@ public class SimpleMove extends Canvas {
 
                     System.out.println(System.currentTimeMillis() - lastPacketReceived);
                     lastPacketReceived = System.currentTimeMillis();
-
-
 
                     Snapshot snapshot = snapshots[(snapshotPointer++)%snapshots.length];
                         bb.position(0);
@@ -237,16 +237,6 @@ public class SimpleMove extends Canvas {
         long renderTime = lastRecievedServerTime + currentPing/2 - INTERP_DELAY_MS;
 
         for (Snapshot s : snapshots) {
-
-//            // track oldest
-//            if (oldest == null || s.time  < oldest.time) {
-//                oldest = s;
-//            }
-//            // track newest
-//            if (newest == null || s.time > newest.time) {
-//                newest = s;
-//            }
-
             // snapshots for interpolation
             if (s.time <= renderTime) {
                 if (older == null || s.time > older.time) {
@@ -259,15 +249,11 @@ public class SimpleMove extends Canvas {
                 }
             }
         }
-//
-//        if (older == null) older = oldest;
-//        if (newer == null) newer = newest;
 
 
         if (older != null && newer != null) {
 //            synchronized (older.mutex) {
 //                synchronized (newer.mutex) {
-
                     clientSize = Math.min(older.clientSize, newer.clientSize);
 
                     float t = (newer.time == older.time) ? 0f
@@ -337,6 +323,15 @@ public class SimpleMove extends Canvas {
         heldBullet.x = cameraCoords.x;
         heldBullet.y = cameraCoords.y- 0.15f;
         heldBullet.z = cameraCoords.z + 0.8f;
+
+        if(health <= 0 && !isDead) {
+            timeOfLocalDeath = System.currentTimeMillis();
+            System.out.println("WHY?");
+            isDead = true;
+        }
+        if(isDead && System.currentTimeMillis() - timeOfLocalDeath > 5000) {
+            isDead = false;
+        }
 
     }
 
@@ -416,8 +411,12 @@ public class SimpleMove extends Canvas {
 
         g.drawString("FPS: " + (int)(1/deltaTime), 30, 30);
         g.drawString("delay: " + INTERP_DELAY_MS, 80, 30);
-        g.drawString(String.valueOf(health), 80, 30);
+        g.drawString(String.valueOf(health), SCREEN_WIDTH/2 - 5 , 30 );
         g.drawString("ping: " + currentPing, SCREEN_WIDTH - 100, 30);
+
+        if(isDead){
+            g.drawString("Respawn in: " + (5 - (System.currentTimeMillis() - timeOfLocalDeath)/1000), SCREEN_WIDTH/2 - 20, SCREEN_HEIGHT/2f);
+        }
 
         g.dispose();
         bs.show();
