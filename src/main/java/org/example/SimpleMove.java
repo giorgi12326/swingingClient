@@ -17,7 +17,6 @@ import java.util.*;
 public class SimpleMove extends Canvas {
     public static final float SCREEN_WIDTH = 1280f;
     public static final float SCREEN_HEIGHT = 720f;
-    public static final float moveSpeed = 10f;
     public static boolean hit = false;
     public static float deltaTime = 1f;
     public static float FOV = 1;
@@ -38,7 +37,7 @@ public class SimpleMove extends Canvas {
     public static boolean[] keysPressed = new boolean[256];
     public static boolean[] buttonsPressed = new boolean[256];
 
-    int[] trackedKeys = {KeyEvent.VK_W, KeyEvent.VK_A, KeyEvent.VK_S, KeyEvent.VK_D, KeyEvent.VK_SPACE};
+    int[] trackedKeys = {KeyEvent.VK_W, KeyEvent.VK_A, KeyEvent.VK_S, KeyEvent.VK_D, KeyEvent.VK_SPACE, KeyEvent.VK_1, KeyEvent.VK_2, KeyEvent.VK_3};
     int[] trackedButtons = {MouseEvent.BUTTON1, MouseEvent.BUTTON3};
 
     List<Cube> cubes;
@@ -55,7 +54,7 @@ public class SimpleMove extends Canvas {
     GrapplingHead grapplingHead = new GrapplingHead(0,0f,0);
     long currentPing = 0;
 
-    byte[] sendArray = new byte[23];
+    byte[] sendArray = new byte[26];
     ByteBuffer sendBuffer = ByteBuffer.wrap(sendArray);
     DatagramPacket sendPacket;
 
@@ -78,10 +77,6 @@ public class SimpleMove extends Canvas {
         cubes.add(new Cube(0.5f,4.5f, 30.5f,1f));
         new Controller(this);
 
-//        addKeyListener(this);
-//        addMouseMotionListener(this);
-//        addMouseListener(this);
-
         setSize((int)SCREEN_WIDTH, (int)SCREEN_HEIGHT);
 
         for (int i = 0; i < 500; i++) {
@@ -102,8 +97,8 @@ public class SimpleMove extends Canvas {
             }
         }
         try {
-            sendPacket = new DatagramPacket(sendArray, sendArray.length, InetAddress.getByName("82.211.163.67"), 1234);
-//            sendPacket = new DatagramPacket(sendArray, sendArray.length, InetAddress.getLocalHost(), 1247);
+//            sendPacket = new DatagramPacket(sendArray, sendArray.length, InetAddress.getByName("82.211.163.67"), 1234);
+            sendPacket = new DatagramPacket(sendArray, sendArray.length, InetAddress.getLocalHost(), 1234);
         } catch (UnknownHostException e) {
             throw new RuntimeException(e);
         }
@@ -117,7 +112,6 @@ public class SimpleMove extends Canvas {
         }
 
         new Thread(() -> {
-
             try {
                 byte[] buffer = new byte[2048];
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
@@ -341,8 +335,8 @@ public class SimpleMove extends Canvas {
         for (int trackedKey : trackedKeys) {
             sendBuffer.put((byte) (keysPressed[trackedKey] ? 1 : 0));
         }
-        for (int trackedKey : trackedButtons) {
-            sendBuffer.put((byte) (buttonsPressed[trackedKey] ? 1 : 0));
+        for (int trackedButton : trackedButtons) {
+            sendBuffer.put((byte) (buttonsPressed[trackedButton] ? 1 : 0));
         }
 
         sendBuffer.putFloat(cameraRotation.x);

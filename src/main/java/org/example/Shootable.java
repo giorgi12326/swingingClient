@@ -10,10 +10,8 @@ import static org.example.SimpleMove.deltaTime;
 public abstract class Shootable extends Projectable{
     public boolean shot;
     public boolean flying;
-    public Triple direction;
     public float r = 0.3f;
     public float moveSpeed = 20f;
-    public boolean markAsDeleted;
 
     @Override
     public Pair<Float> projectWithStrategy(Triple point, Triple rotatedPoint) {
@@ -43,16 +41,4 @@ public abstract class Shootable extends Projectable{
 
     public abstract List<Pair<Integer>> getStaticEdges();
 
-    public void update() {
-        if(shot && flying){
-            x += direction.x * moveSpeed * deltaTime;
-            y += direction.y * moveSpeed * deltaTime;
-            z += direction.z * moveSpeed * deltaTime;
-            if(Math.abs(x - SimpleMove.cameraCoords.x) > 1000f ||
-                    Math.abs(y - SimpleMove.cameraCoords.y) > 1000f ||
-                    Math.abs(z - SimpleMove.cameraCoords.z) > 1000f)
-                markAsDeleted = true;
-
-        }
-    }
 }
