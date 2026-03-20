@@ -239,6 +239,15 @@ public class GrapplingHead extends Shootable{
 
         };
     }
+    @Override
+    public Pair<Float> projectWithStrategy(Triple point, Triple rotatedPoint) {
+        Pair<Float> projected;
+        if(shot)
+            projected = UtilProject.projectTo2D(rotatedPoint.x, rotatedPoint.y, rotatedPoint.z);
+        else
+            projected = UtilProject.projectTo2DWithoutRotatingAgainstCamera(point.x, point.y, point.z, 0f, 0, 0f);
+        return projected;
+    }
 
     @Override
     public List<Pair<Integer>> getStaticEdges() {

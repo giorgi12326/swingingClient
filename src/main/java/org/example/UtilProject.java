@@ -31,7 +31,7 @@ public class UtilProject {
 
         return new Pair<>(SCREEN_WIDTH * d/2f + SCREEN_WIDTH/2f, ((SCREEN_HEIGHT*t)/2f) + (SCREEN_HEIGHT/2f));
     }
-    public static  Pair<Float>projectTo2DWithoutRotatingAgainstCamera(float x, float y, float z) {
+    public static Pair<Float>projectTo2DWithoutRotatingAgainstCamera(float x, float y, float z) {
         x -= cameraCoords.x;
         y -= cameraCoords.y;
         z -= cameraCoords.z;
@@ -42,5 +42,8 @@ public class UtilProject {
 //        if(Math.abs(y) > Math.abs(z) || Math.abs(x) > Math.abs(z)) return null; // only sohw visible nodes , wihtout it things in front of camera z is drawn off screen
 
         return new Pair<>(SCREEN_WIDTH * d/2f + SCREEN_WIDTH/2f, ((SCREEN_HEIGHT*t)/2f) + (SCREEN_HEIGHT/2f));
+    }
+    public static Pair<Float>projectTo2DWithoutRotatingAgainstCamera(float x, float y, float z, float offsetX, float offsetY, float offsetZ) {
+        return projectTo2DWithoutRotatingAgainstCamera(x + offsetX, y + offsetY, z + offsetZ);
     }
 }

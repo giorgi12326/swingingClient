@@ -45,11 +45,11 @@ public class Controller implements MouseListener, MouseMotionListener, KeyListen
 
     @Override
     public void mouseDragged(MouseEvent e) {
+        moveCamera(e);
 
     }
 
-    @Override
-    public void mouseMoved(MouseEvent e) {
+    private static void moveCamera(MouseEvent e) {
         float a = (float) Math.PI * -((2 * e.getY() / SCREEN_HEIGHT) - 1);// - because panel y starts from top
         if(a > 0)
             cameraRotation.x = Math.min(a,1.57f);
@@ -57,6 +57,11 @@ public class Controller implements MouseListener, MouseMotionListener, KeyListen
             cameraRotation.x = Math.max(a,-1.57f);
 
         cameraRotation.y = (float)Math.PI * ((2 * e.getX() / SCREEN_WIDTH) - 1);
+    }
+
+    @Override
+    public void mouseMoved(MouseEvent e) {
+        moveCamera(e);
 
     }
 

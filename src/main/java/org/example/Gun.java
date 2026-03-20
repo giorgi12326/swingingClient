@@ -79,6 +79,11 @@ public class Gun extends Projectable {
         };
     }
 
+    @Override
+    public List<Pair<Integer>> getStaticEdges() {
+        return edges;
+    }
+
 
     @Override
     protected Pair<Float> projectWithStrategy(Triple point, Triple rotatedPoint) {

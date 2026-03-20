@@ -2,6 +2,7 @@ package org.example;
 
 import java.awt.*;
 import java.awt.geom.Line2D;
+import java.util.List;
 
 import static org.example.SimpleMove.SCREEN_HEIGHT;
 
@@ -17,7 +18,7 @@ public abstract class Projectable {
     public void draw(Graphics2D g) {
         Pair<Float>[] projectedDots = getProjectedDots();
 
-        for(Pair<Integer> pair : Gun.edges){
+        for(Pair<Integer> pair : getStaticEdges()){
             if(projectedDots[pair.x] == null || projectedDots[pair.y] == null) continue;
             g.draw(new Line2D.Float(
                     projectedDots[pair.x].x,
@@ -42,6 +43,8 @@ public abstract class Projectable {
     }
 
     protected abstract Triple[] getNodes();
+
+    public abstract List<Pair<Integer>> getStaticEdges();
 
     protected abstract Pair<Float> projectWithStrategy(Triple point, Triple rotatedPoint);
 

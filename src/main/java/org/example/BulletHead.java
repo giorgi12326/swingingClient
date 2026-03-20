@@ -33,9 +33,10 @@ public class BulletHead extends Shootable {
         edges.add(new Pair<>(7,8));
 
     }
+
     public Triple[] getNodes() {
-        float dx = (float) Math.cos(Math.PI / 6) * r;
-        float dy = (float) Math.sin(Math.PI / 6) * r;
+        float dx = 0;
+        float dy = 0;
         return new Triple[]{
                 new Triple(x + dx + 0.04f,y + dy + 0.04f, z),
                 new Triple(x + dx - 0.04f,y + dy + 0.04f, z),

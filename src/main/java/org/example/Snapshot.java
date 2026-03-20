@@ -7,7 +7,9 @@ public class Snapshot {
     long time;
 
     BulletSnapshot[] bullets = new BulletSnapshot[500];
+    PowerUpSnapShot[] powerUps = new PowerUpSnapShot[100];
     public int bulletSize;
+    public int powerUpSize;
 
     Client me = new Client();
 
@@ -25,6 +27,9 @@ public class Snapshot {
         // initialize clients
         for (int i = 0; i < clients.length; i++) {
             clients[i] = new Client();
+        }
+        for (int i = 0; i < powerUps.length; i++) {
+            powerUps[i] = new PowerUpSnapShot();
         }
     }
 

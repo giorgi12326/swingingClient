@@ -1,8 +1,10 @@
 package org.example;
 
-import java.net.InetAddress;
+import java.util.ArrayList;
+import java.util.List;
 
 public class Client {
+    public List<Integer> powerUps = new ArrayList<>();
     int health;
     Triple sum = new Triple(0f,0f,0f);
     Triple cameraCoords = new Triple(0f,0f,0f);

@@ -1,5 +1,6 @@
 package org.example;
 
+
 import java.awt.Canvas;
 import java.awt.Graphics2D;
 import java.awt.Graphics;
@@ -21,9 +22,9 @@ public class SimpleMove extends Canvas {
     public static float deltaTime = 1f;
     public static float FOV = 1;
     long lastTime = System.nanoTime();
-    long lastPacketReceived = 0;
+    public static long lastPacketReceived = 0;
 
-    long serverOffset = Long.MAX_VALUE;
+    public static long serverOffset = Long.MAX_VALUE;
 
     static int INTERP_DELAY_MS = 30;
 
@@ -46,13 +47,14 @@ public class SimpleMove extends Canvas {
     boolean bulletHeld;
 
     Client[] clients = new Client[4];
-    BulletHead[] bulletsPool = new BulletHead[500];;
-    Snapshot[] snapshots = new Snapshot[30];
-    int snapshotPointer = 0;
+    public static BulletHead[] bulletsPool = new BulletHead[500];
+    public static PowerUp[] powerUpPool = new PowerUp[100];
+    public static Snapshot[] snapshots = new Snapshot[30];
+    public static int snapshotPointer = 0;
 
     Gun gun = new Gun(0,0,0);
     GrapplingHead grapplingHead = new GrapplingHead(0,0f,0);
-    long currentPing = 0;
+    public static long currentPing = 0;
 
     byte[] sendArray = new byte[26];
     ByteBuffer sendBuffer = ByteBuffer.wrap(sendArray);
@@ -60,9 +62,10 @@ public class SimpleMove extends Canvas {
 
     DatagramSocket socket = null;
     private int clientSize = 0;
-    private long lastRecievedServerTime;
+    public static long lastRecievedServerTime;
     private boolean isDead;
     private long timeOfLocalDeath;
+    private List<Integer> givenPowerups = new ArrayList<>();
 
     public SimpleMove() {
         this.cubes = new ArrayList<>();
@@ -79,23 +82,21 @@ public class SimpleMove extends Canvas {
 
         setSize((int)SCREEN_WIDTH, (int)SCREEN_HEIGHT);
 
-        for (int i = 0; i < 500; i++) {
+        for (int i = 0; i < 500; i++)
             bulletsPool[i] = new BulletHead();
-        }
 
-        for (int i = 0; i < 30; i++) {
+        for (int i = 0; i < 100; i++)
+            powerUpPool[i] = new PowerUp();
+
+        for (int i = 0; i < 30; i++)
             snapshots[i] = new Snapshot();
-        }
 
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < 4; i++)
             clients[i] = new Client();
-        }
 
-        for (int i = -10; i < 10; i++) {
-            for (int j = -10; j < 10; j++) {
+        for (int i = -10; i < 10; i++)
+            for (int j = -10; j < 10; j++)
                 floor.add(new Triple(i*1f, 0f, j*1f));
-            }
-        }
         try {
 //            sendPacket = new DatagramPacket(sendArray, sendArray.length, InetAddress.getByName("82.211.163.67"), 1234);
             sendPacket = new DatagramPacket(sendArray, sendArray.length, InetAddress.getLocalHost(), 1234);
@@ -111,85 +112,7 @@ public class SimpleMove extends Canvas {
             throw new RuntimeException(e);
         }
 
-        new Thread(() -> {
-            try {
-                byte[] buffer = new byte[2048];
-                DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
-                ByteBuffer bb = ByteBuffer.wrap(buffer);
-
-                while (true) {
-                    socket.receive(packet);
-
-                    System.out.println(System.currentTimeMillis() - lastPacketReceived);
-                    lastPacketReceived = System.currentTimeMillis();
-
-                    Snapshot snapshot = snapshots[(snapshotPointer++)%snapshots.length];
-                        bb.position(0);
-                        bb.limit(packet.getLength());
-
-                        snapshot.me.cameraCoords.x = bb.getFloat();
-                        snapshot.me.cameraCoords.y = bb.getFloat();
-                        snapshot.me.cameraCoords.z = bb.getFloat();
-                        snapshot.me.health = bb.getInt();
-
-                        snapshot.bulletSize = bb.getInt();
-
-                        for (BulletHead head : bulletsPool) head.x = 0;
-
-                        for (int i = 0; i < snapshot.bulletSize; i++) {
-                            BulletSnapshot bulletSnapshot = snapshot.bullets[i];
-                            bulletSnapshot.x = bb.getFloat();
-                            bulletSnapshot.y = bb.getFloat();
-                            bulletSnapshot.z = bb.getFloat();
-                            bulletSnapshot.rotationX = bb.getFloat();
-                            bulletSnapshot.rotationY = bb.getFloat();
-                            bulletSnapshot.shot = bb.get() == 1;
-                            bulletSnapshot.flying = bb.get() == 1;
-                        }
-
-                        snapshot.me.bulletHeld = (bb.get() == 1);
-                        snapshot.me.grapplingEquipped = (bb.get() == 1);
-                        snapshot.me.grapplingHead.shot = (bb.get() == 1);
-                        snapshot.me.grapplingHead.flying = (bb.get() == 1);
-
-                        snapshot.me.grapplingHead.x = bb.getFloat();
-                        snapshot.me.grapplingHead.y = bb.getFloat();
-                        snapshot.me.grapplingHead.z = bb.getFloat();
-                        snapshot.me.grapplingHead.rotation.x = bb.getFloat();
-                        snapshot.me.grapplingHead.rotation.y = bb.getFloat();
-
-                        snapshot.clientSize = bb.getInt();
-
-                        for (int i = 0; i < snapshot.clientSize; i++) {
-                            Client client = snapshot.clients[i];
-                            client.cameraCoords.x = bb.getFloat();
-                            client.cameraCoords.y = bb.getFloat();
-                            client.cameraCoords.z = bb.getFloat();
-                            client.cameraRotation.x = bb.getFloat();
-                            client.cameraRotation.y = bb.getFloat();
-
-                            client.grapplingHead.x = bb.getFloat();
-                            client.grapplingHead.y = bb.getFloat();
-                            client.grapplingHead.z = bb.getFloat();
-                            client.grapplingHead.rotation.x = bb.getFloat();
-                            client.grapplingHead.rotation.y = bb.getFloat();
-                            client.grapplingEquipped = bb.get() == 1;
-                        }
-
-                    snapshot.me.time = bb.getLong();
-                    snapshot.time = bb.getLong();
-
-                    currentPing = System.currentTimeMillis() - snapshot.me.time;
-
-                    lastRecievedServerTime = snapshot.time;
-
-                    serverOffset = Math.min(serverOffset, snapshot.time - System.currentTimeMillis());
-
-                }
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        }).start();
+        new Thread(new SnapShotReceiver(socket)).start();
 
         updateAndSend();
 
@@ -199,7 +122,6 @@ public class SimpleMove extends Canvas {
         try {
             createBufferStrategy(2);   // double buffering
             BufferStrategy bs = getBufferStrategy();
-
 
             while (true) {
                 long now = System.nanoTime();
@@ -223,35 +145,26 @@ public class SimpleMove extends Canvas {
     }
 
     private void processReadings() {
-        Snapshot oldest = null;
         Snapshot older = null;
         Snapshot newer = null;
-        Snapshot newest = null;
 
         long renderTime = lastRecievedServerTime + currentPing/2 - INTERP_DELAY_MS;
 
         for (Snapshot s : snapshots) {
-            // snapshots for interpolation
-            if (s.time <= renderTime) {
-                if (older == null || s.time > older.time) {
+            if (s.time <= renderTime)
+                if (older == null || s.time > older.time)
                     older = s;
-                }
-            }
-            if (s.time > renderTime) {
-                if (newer == null || s.time  < newer.time) {
+            if (s.time > renderTime)
+                if (newer == null || s.time  < newer.time)
                     newer = s;
-                }
-            }
         }
 
-
         if (older != null && newer != null) {
-//            synchronized (older.mutex) {
-//                synchronized (newer.mutex) {
+            synchronized (older.mutex) {
+                synchronized (newer.mutex) {
                     clientSize = Math.min(older.clientSize, newer.clientSize);
 
-                    float t = (newer.time == older.time) ? 0f
-                            : (renderTime - older.time) / (float) (newer.time - older.time);
+                    float t = (renderTime - older.time) / (float) (newer.time - older.time);
 
                     cameraCoords.x = lerp(older.me.cameraCoords.x, newer.me.cameraCoords.x, t);
                     cameraCoords.y = lerp(older.me.cameraCoords.y, newer.me.cameraCoords.y, t);
@@ -296,10 +209,25 @@ public class SimpleMove extends Canvas {
                         clients[i].grapplingHead.z = lerp(oc.grapplingHead.z, nc.grapplingHead.z, t);
                         clients[i].grapplingHead.rotation.x = lerp(oc.grapplingHead.rotation.x, nc.grapplingHead.rotation.x, t);
                         clients[i].grapplingHead.rotation.y = lerp(oc.grapplingHead.rotation.y, nc.grapplingHead.rotation.y, t);
+
+                        clients[i].hitbox.x = clients[i].cameraCoords.x;
+                        clients[i].hitbox.y = clients[i].cameraCoords.y + 0.25f;
+                        clients[i].hitbox.z = clients[i].cameraCoords.z;
                     }
 
-//                }
-//            }
+                    givenPowerups.clear();
+                    givenPowerups.addAll(newer.me.powerUps);
+
+                    for (int i = 0; i < Math.min(older.powerUpSize, newer.powerUpSize); i++) {
+                        PowerUpSnapShot ob = older.powerUps[i];
+                        PowerUpSnapShot nb = newer.powerUps[i];
+                        powerUpPool[i].x = lerp(ob.x, nb.x, t);
+                        powerUpPool[i].y = lerp(ob.y, nb.y, t);
+                        powerUpPool[i].z = lerp(ob.z, nb.z, t);
+                        powerUpPool[i].type = nb.type;
+                    }
+                }
+            }
         }
 
         gun.x = cameraCoords.x + 0.1f;
@@ -314,19 +242,18 @@ public class SimpleMove extends Canvas {
             grapplingHead.rotation.y = 0f;
         }
 
-        heldBullet.x = cameraCoords.x;
-        heldBullet.y = cameraCoords.y- 0.15f;
+        heldBullet.x = cameraCoords.x + 0.3f;
+        heldBullet.y = cameraCoords.y;
         heldBullet.z = cameraCoords.z + 0.8f;
 
         if(health <= 0 && !isDead) {
             timeOfLocalDeath = System.currentTimeMillis();
-            System.out.println("WHY?");
             isDead = true;
         }
+
         if(isDead && System.currentTimeMillis() - timeOfLocalDeath > 5000) {
             isDead = false;
         }
-
     }
 
     private void sendInputs() throws IOException {
@@ -362,14 +289,10 @@ public class SimpleMove extends Canvas {
         for (int i = 0; i < clientSize; i++) {
             Client client = clients[i];
             g.setColor(Color.PINK);
-            client.hitbox.x = client.cameraCoords.x;
-            client.hitbox.y = client.cameraCoords.y + 0.25f;
-            client.hitbox.z = client.cameraCoords.z;
 //            client.hitbox.rotateY(1);
             client.hitbox.draw(g);
         }
         g.setColor(Color.BLUE);
-
 
         for(Triple point : floor)
             point.draw(g);
@@ -381,7 +304,7 @@ public class SimpleMove extends Canvas {
         gun.draw(g);
 
         if(grapplingEquipped) {
-            grapplingHead.drawEdges(g);
+            grapplingHead.draw(g);
 
             Pair<Float>[] projectedDotsForGun = gun.getProjectedDots();
 
@@ -392,21 +315,41 @@ public class SimpleMove extends Canvas {
                         SCREEN_HEIGHT -  projectedDotsForGun[Gun.edges.get(12).x].y,// - because panel y starts from top
                         hookProjected[GrapplingHead.edges.get(16).y].x,
                         SCREEN_HEIGHT - hookProjected[GrapplingHead.edges.get(16).y].y));// - because panel y starts from top
-
         }
 
         if((bulletHeld && !grapplingEquipped) || (grapplingEquipped && bulletHeld && grapplingHead.shot))
-            heldBullet.drawEdges(g);
+            heldBullet.draw(g);
 
-        for (BulletHead bullet : bulletsPool){
+        for (BulletHead bullet : bulletsPool)
             if(bullet.x != 0)
-                bullet.drawEdges(g);
+                bullet.draw(g);
+
+        for (PowerUp powerUp: powerUpPool)
+            if(powerUp.z != 0) {
+                if (powerUp.type == 1)
+                    g.setColor(Color.lightGray);
+                if (powerUp.type == 2)
+                    g.setColor(Color.RED);
+                powerUp.draw(g);
+            }
+
+        for (int i = 0; i < givenPowerups.size(); i++) {
+            int type = givenPowerups.get(i);
+            if (type == 1)
+                g.setColor(Color.lightGray);
+            if (type == 2)
+                g.setColor(Color.RED);
+
+            g.drawOval( 30, (int) (SCREEN_HEIGHT - (i+1) * 50), 30, 30);
         }
+        g.setColor(Color.yellow);
+
 
         g.drawString("FPS: " + (int)(1/deltaTime), 30, 30);
         g.drawString("delay: " + INTERP_DELAY_MS, 80, 30);
         g.drawString(String.valueOf(health), SCREEN_WIDTH/2 - 5 , 30 );
         g.drawString("ping: " + currentPing, SCREEN_WIDTH - 100, 30);
+
 
         if(isDead){
             g.drawString("Respawn in: " + (5 - (System.currentTimeMillis() - timeOfLocalDeath)/1000), SCREEN_WIDTH/2 - 20, SCREEN_HEIGHT/2f);
@@ -429,8 +372,6 @@ public class SimpleMove extends Canvas {
         g.fill(new Rectangle2D.Float(SCREEN_WIDTH/2f - 10f, SCREEN_HEIGHT/2f-2f, 20f, 4f));
         g.fill(new Rectangle2D.Float(SCREEN_WIDTH/2f - 2f, SCREEN_HEIGHT/2f-10f, 4f, 20f));
     }
-
-
 
     public static void main(String[] args) {
         createWindow();
